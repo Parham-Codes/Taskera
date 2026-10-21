@@ -1,5 +1,5 @@
 <p align="right">
-  🌐 **Language:** 🇺🇸 English | [🇮🇷 فارسی](./README.fa.md)
+  🌐 <b>Language:</b> 🇺🇸 English | <a href="./README.fa.md"><b>🇮🇷 فارسی</b></a>
 </p>
 
 # Taskera — Smart Workspace with Telegram Bot & AI Markdown Sync
