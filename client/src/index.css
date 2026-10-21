@@ -90,22 +90,6 @@
   backdrop-filter: blur(8px);
 }
 
-/* View Transition: Incoming theme (new) always sweeps smoothly over the old snapshot */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-  transform: translateZ(0);
-}
-
-::view-transition-old(root) {
-  z-index: 1;
-}
-
-::view-transition-new(root) {
-  z-index: 9999;
-  will-change: clip-path;
-}
 
 /* Theme Toggle Button Micro-Animation */
 @keyframes theme-burst {
