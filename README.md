@@ -1,3 +1,7 @@
+<p align="right">
+  🌐 **Language:** 🇺🇸 English | [🇮🇷 فارسی](./README.fa.md)
+</p>
+
 # Taskera — Smart Workspace with Telegram Bot & AI Markdown Sync
 
 <div align="center">
@@ -152,3 +156,11 @@ Developed by **Parham Taghikhani**
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+### ⭐ If you found this project helpful, consider giving it a Star!
+
+</div>
