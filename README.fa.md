@@ -1,5 +1,5 @@
-<p align="right">
-  🌐 <b>زبان:</b> <a href="./README.md"><b>🇺🇸 English</b></a> | 🇮🇷 <b>فارسی</b>
+<p align="right" dir="rtl">
+  🌐 <b>زبان:</b> 🇮🇷 فارسی | <a href="./README.md"><b>🇺🇸 English</b></a>
 </p>
 
 # تسکرا (Taskera) — فضای کاری هوشمند با بات تلگرام و سینک هوش مصنوعی
