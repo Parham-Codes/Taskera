@@ -43,22 +43,19 @@ export const ThemeProvider = ({ children }) => {
       Math.max(y, window.innerHeight - y)
     );
 
-    // Using flushSync ensures React immediately commits the DOM change
-    // before the browser takes the snapshot of the new view!
+    // Update DOM class immediately so the browser takes an instant new snapshot without React main-thread blocking
     const transition = document.startViewTransition(() => {
-      flushSync(() => {
-        const root = document.documentElement;
-        if (nextTheme === 'dark') {
-          root.classList.add('dark');
-        } else {
-          root.classList.remove('dark');
-        }
-        setTheme(nextTheme);
-      });
+      const root = document.documentElement;
+      if (nextTheme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+      setTheme(nextTheme);
     });
 
     transition.ready.then(() => {
-      // The incoming new view smoothly expands as a circle over the old snapshot
+      // Hardware-accelerated fast circular sweep
       document.documentElement.animate(
         {
           clipPath: [
@@ -67,8 +64,8 @@ export const ThemeProvider = ({ children }) => {
           ],
         },
         {
-          duration: 420,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          duration: 260,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
           pseudoElement: '::view-transition-new(root)',
         }
       );

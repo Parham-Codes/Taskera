@@ -95,6 +95,7 @@
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
+  transform: translateZ(0);
 }
 
 ::view-transition-old(root) {
@@ -103,6 +104,7 @@
 
 ::view-transition-new(root) {
   z-index: 9999;
+  will-change: clip-path;
 }
 
 /* Theme Toggle Button Micro-Animation */
