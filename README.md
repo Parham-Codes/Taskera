@@ -150,6 +150,7 @@ Developed by **Parham Taghikhani**
 
 - **GitHub:** [@Parham-Codes](https://github.com/Parham-Codes)
 - **Portfolio:** [parham-codes.github.io/portfolio](https://parham-codes.github.io/portfolio/)
+- **Email:** [parhamtaghikhani.31@gmail.com](mailto:parhamtaghikhani.31@gmail.com)
 
 ---
 
