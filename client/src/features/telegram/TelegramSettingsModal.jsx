@@ -28,6 +28,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
   const [notifyOnCreated, setNotifyOnCreated] = useState(true);
   const [notifyOnAssigned, setNotifyOnAssigned] = useState(true);
   const [notifyOnStatusChange, setNotifyOnStatusChange] = useState(true);
+  const [notifyOnReminders, setNotifyOnReminders] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -46,6 +47,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
         setNotifyOnCreated(settings.notifyOnCreated !== false);
         setNotifyOnAssigned(settings.notifyOnAssigned !== false);
         setNotifyOnStatusChange(settings.notifyOnStatusChange !== false);
+        setNotifyOnReminders(settings.notifyOnReminders !== false);
       } else {
         // Fetch from backend
         telegramApi
@@ -58,6 +60,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
               setNotifyOnCreated(resSettings.notifyOnCreated !== false);
               setNotifyOnAssigned(resSettings.notifyOnAssigned !== false);
               setNotifyOnStatusChange(resSettings.notifyOnStatusChange !== false);
+              setNotifyOnReminders(resSettings.notifyOnReminders !== false);
             }
           })
           .catch(() => {});
@@ -78,6 +81,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
         notifyOnCreated,
         notifyOnAssigned,
         notifyOnStatusChange,
+        notifyOnReminders,
       };
 
       const updatedSettings = await telegramApi.updateSettings(payload);
@@ -309,6 +313,18 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
                 />
                 <span className="text-slate-700 dark:text-slate-300 text-xs">
                   {t('notifyOnStatusChange')}
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notifyOnReminders}
+                  onChange={(e) => setNotifyOnReminders(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-0 focus:outline-none"
+                />
+                <span className="text-slate-700 dark:text-slate-300 text-xs">
+                  {t('notifyOnReminders')}
                 </span>
               </label>
             </div>

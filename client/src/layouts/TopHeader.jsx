@@ -14,9 +14,9 @@ import {
   MessageSquare,
   Sparkles,
   Tag,
-  Command,
-  Send,
+  Calendar,
   MoreHorizontal,
+  AlarmClock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWorkspace } from '../context/WorkspaceContext.jsx';
@@ -236,6 +236,20 @@ export const TopHeader = ({
                     <ListIcon className="w-3.5 h-3.5" />
                     <span>{t('listView')}</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      onViewModeChange('calendar');
+                      setMoreMenuOpen(false);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                      viewMode === 'calendar'
+                        ? 'bg-brand-500 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{t('calendarView')}</span>
+                  </button>
                 </div>
               </div>
 
@@ -358,6 +372,17 @@ export const TopHeader = ({
           >
             <ListIcon className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={() => onViewModeChange('calendar')}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === 'calendar'
+                ? 'bg-brand-500 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            }`}
+            title={t('calendarView')}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* In-App Notifications Bell & Floating Popover */}
@@ -410,45 +435,72 @@ export const TopHeader = ({
                     {t('noNotifications')}
                   </div>
                 ) : (
-                  notifications.map((n) => (
-                    <div
-                      key={n._id}
-                      onClick={() => {
-                        markAsRead(n._id);
-                        if (n.taskId?._id || n.taskId) {
-                          onOpenTaskDetail?.(n.taskId?._id || n.taskId);
-                          setNotificationsMenuOpen(false);
-                        }
-                      }}
-                      className={`p-2.5 rounded-2xl flex items-start gap-2.5 cursor-pointer transition-all ${
-                        !n.isRead
-                          ? 'bg-brand-50/70 dark:bg-brand-950/30 border border-brand-500/20'
-                          : 'hover:bg-slate-100/70 dark:hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-500 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
-                        {n.sender?.name?.[0]?.toUpperCase() || <MessageSquare className="w-3.5 h-3.5" />}
-                      </div>
+                  notifications.map((n) => {
+                    const isReminder = n.type === 'task_reminder';
+                    const displayTitle = isReminder
+                      ? (n.reminderStage === 'day_before'
+                          ? t('reminderDayBeforeTitle')
+                          : t('reminderDueTodayTitle'))
+                      : n.title;
+                    const taskTitle = n.taskId?.title || '';
+                    const displayMessage = isReminder && taskTitle
+                      ? (n.reminderStage === 'day_before'
+                          ? t('reminderDayBeforeMsg').replace('{title}', taskTitle)
+                          : t('reminderDueTodayMsg').replace('{title}', taskTitle))
+                      : n.message;
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className="font-bold text-slate-800 dark:text-slate-100 text-[11px] truncate">
-                            {n.title}
-                          </p>
-                          <span className="text-[10px] text-slate-400 shrink-0">
-                            {formatRelativeTime(n.createdAt)}
-                          </span>
+                    return (
+                      <div
+                        key={n._id}
+                        onClick={() => {
+                          markAsRead(n._id);
+                          if (n.taskId?._id || n.taskId) {
+                            onOpenTaskDetail?.(n.taskId?._id || n.taskId);
+                            setNotificationsMenuOpen(false);
+                          }
+                        }}
+                        className={`p-2.5 rounded-2xl flex items-start gap-2.5 cursor-pointer transition-all ${
+                          !n.isRead
+                            ? 'bg-brand-50/70 dark:bg-brand-950/30 border border-brand-500/20'
+                            : 'hover:bg-slate-100/70 dark:hover:bg-slate-800/40'
+                        }`}
+                      >
+                        <div
+                          className={`w-7 h-7 rounded-xl font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-xs ${
+                            isReminder
+                              ? 'bg-gradient-to-tr from-amber-500 to-rose-500 text-white'
+                              : 'bg-gradient-to-tr from-brand-500 to-indigo-600 text-white'
+                          }`}
+                        >
+                          {isReminder ? (
+                            <AlarmClock className="w-3.5 h-3.5" />
+                          ) : (
+                            n.sender?.name?.[0]?.toUpperCase() || (
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            )
+                          )}
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">
-                          {n.message}
-                        </p>
-                      </div>
 
-                      {!n.isRead && (
-                        <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0 mt-1.5" />
-                      )}
-                    </div>
-                  ))
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="font-bold text-slate-800 dark:text-slate-100 text-[11px] truncate">
+                              {displayTitle}
+                            </p>
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {formatRelativeTime(n.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">
+                            {displayMessage}
+                          </p>
+                        </div>
+
+                        {!n.isRead && (
+                          <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0 mt-1.5" />
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

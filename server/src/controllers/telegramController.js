@@ -19,6 +19,7 @@ export const getTelegramSettings = async (req, res, next) => {
       notifyOnCreated: true,
       notifyOnAssigned: true,
       notifyOnStatusChange: true,
+      notifyOnReminders: true,
     };
 
     return successResponse(res, {
@@ -35,8 +36,15 @@ export const getTelegramSettings = async (req, res, next) => {
  */
 export const updateTelegramSettings = async (req, res, next) => {
   try {
-    const { enabled, botToken, chatId, notifyOnCreated, notifyOnAssigned, notifyOnStatusChange } =
-      req.body;
+    const {
+      enabled,
+      botToken,
+      chatId,
+      notifyOnCreated,
+      notifyOnAssigned,
+      notifyOnStatusChange,
+      notifyOnReminders,
+    } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -51,6 +59,8 @@ export const updateTelegramSettings = async (req, res, next) => {
       notifyOnAssigned: notifyOnAssigned !== undefined ? Boolean(notifyOnAssigned) : true,
       notifyOnStatusChange:
         notifyOnStatusChange !== undefined ? Boolean(notifyOnStatusChange) : true,
+      notifyOnReminders:
+        notifyOnReminders !== undefined ? Boolean(notifyOnReminders) : true,
     };
 
     await user.save();

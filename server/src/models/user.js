@@ -61,6 +61,15 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: true,
       },
+      notifyOnReminders: {
+        type: Boolean,
+        default: true,
+      },
+    },
+    timezone: {
+      type: String,
+      default: 'UTC',
+      trim: true,
     },
   },
   {
@@ -86,6 +95,7 @@ userSchema.methods.toSafeJSON = function () {
     name: this.name,
     email: this.email,
     avatar: this.avatar,
+    timezone: this.timezone || 'UTC',
     telegramSettings: this.telegramSettings || {
       enabled: false,
       botToken: '',
@@ -93,6 +103,7 @@ userSchema.methods.toSafeJSON = function () {
       notifyOnCreated: true,
       notifyOnAssigned: true,
       notifyOnStatusChange: true,
+      notifyOnReminders: true,
     },
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

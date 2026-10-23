@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCheck, MessageSquare } from 'lucide-react';
+import { Bell, CheckCheck, MessageSquare, AlarmClock } from 'lucide-react';
 import { formatRelativeTime } from '../../utils/taskHelpers.js';
 
 export const TaskBoardNotificationView = ({
@@ -43,47 +43,72 @@ export const TaskBoardNotificationView = ({
             {t('noNotifications')}
           </div>
         ) : (
-          notifications.map((n) => (
-            <div
-              key={n._id}
-              onClick={() => {
-                onMarkAsRead(n._id);
-                if (n.taskId?._id || n.taskId) {
-                  onOpenTaskDetail(n.taskId?._id || n.taskId);
-                }
-              }}
-              className={`p-4 rounded-2xl flex items-start justify-between gap-3 cursor-pointer transition-all ${
-                !n.isRead
-                  ? 'bg-brand-50/80 dark:bg-brand-950/40 border border-brand-500/30 shadow-xs'
-                  : 'hover:bg-slate-100/70 dark:hover:bg-slate-800/40 border border-transparent'
-              }`}
-            >
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-xs">
-                  {n.sender?.name?.[0]?.toUpperCase() || (
-                    <MessageSquare className="w-4 h-4" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                      {n.title}
-                    </p>
-                    {!n.isRead && (
-                      <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" />
+          notifications.map((n) => {
+            const isReminder = n.type === 'task_reminder';
+            const displayTitle = isReminder
+              ? (n.reminderStage === 'day_before'
+                  ? t('reminderDayBeforeTitle')
+                  : t('reminderDueTodayTitle'))
+              : n.title;
+            const taskTitle = n.taskId?.title || '';
+            const displayMessage = isReminder && taskTitle
+              ? (n.reminderStage === 'day_before'
+                  ? t('reminderDayBeforeMsg').replace('{title}', taskTitle)
+                  : t('reminderDueTodayMsg').replace('{title}', taskTitle))
+              : n.message;
+
+            return (
+              <div
+                key={n._id}
+                onClick={() => {
+                  onMarkAsRead(n._id);
+                  if (n.taskId?._id || n.taskId) {
+                    onOpenTaskDetail(n.taskId?._id || n.taskId);
+                  }
+                }}
+                className={`p-4 rounded-2xl flex items-start justify-between gap-3 cursor-pointer transition-all ${
+                  !n.isRead
+                    ? 'bg-brand-50/80 dark:bg-brand-950/40 border border-brand-500/30 shadow-xs'
+                    : 'hover:bg-slate-100/70 dark:hover:bg-slate-800/40 border border-transparent'
+                }`}
+              >
+                <div className="flex items-start gap-3 min-w-0">
+                  <div
+                    className={`w-8 h-8 rounded-xl font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-xs ${
+                      isReminder
+                        ? 'bg-gradient-to-tr from-amber-500 to-rose-500 text-white'
+                        : 'bg-gradient-to-tr from-brand-600 to-indigo-600 text-white'
+                    }`}
+                  >
+                    {isReminder ? (
+                      <AlarmClock className="w-4 h-4" />
+                    ) : (
+                      n.sender?.name?.[0]?.toUpperCase() || (
+                        <MessageSquare className="w-4 h-4" />
+                      )
                     )}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                    {n.message}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        {displayTitle}
+                      </p>
+                      {!n.isRead && (
+                        <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                      {displayMessage}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <span className="text-[11px] text-slate-400 shrink-0 ms-2">
-                {formatRelativeTime(n.createdAt, lang)}
-              </span>
-            </div>
-          ))
+                <span className="text-[11px] text-slate-400 shrink-0 ms-2">
+                  {formatRelativeTime(n.createdAt, lang)}
+                </span>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

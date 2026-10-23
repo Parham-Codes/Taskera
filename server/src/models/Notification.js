@@ -4,6 +4,7 @@ export const NOTIFICATION_TYPES = {
   COMMENT_ADDED: 'comment_added',
   TASK_ASSIGNED: 'task_assigned',
   STATUS_CHANGED: 'status_changed',
+  TASK_REMINDER: 'task_reminder',
   GENERAL: 'general',
 };
 
@@ -18,7 +19,7 @@ const notificationSchema = new mongoose.Schema(
     sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Notification sender is required'],
+      default: null,
     },
     type: {
       type: String,
@@ -52,6 +53,11 @@ const notificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
       index: true,
+    },
+    reminderStage: {
+      type: String,
+      enum: ['day_before', 'due_today', null],
+      default: null,
     },
   },
   {

@@ -1,6 +1,7 @@
 import User from '../models/user.js';
 import { generateTokens, setAuthCookies, clearAuthCookies, verifyRefreshToken } from '../utils/token.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
+import { isValidTimezone } from '../utils/reminderDateUtils.js';
 
 export const register = async (req, res, next) => {
   try {
@@ -157,4 +158,36 @@ export const getMe = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateTimezone = async (req, res, next) => {
+  try {
+    const { timezone } = req.body;
+    if (!timezone || !isValidTimezone(timezone)) {
+      return errorResponse(res, {
+        message: 'Invalid IANA time zone identifier',
+        statusCode: 400,
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { timezone: timezone.trim() },
+      { returnDocument: 'after' }
+    );
+
+    if (!user) {
+      return errorResponse(res, { message: 'User not found', statusCode: 404 });
+    }
+
+    return successResponse(res, {
+      message: 'Timezone updated successfully',
+      data: {
+        user: user.toSafeJSON(),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

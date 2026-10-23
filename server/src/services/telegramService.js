@@ -164,3 +164,98 @@ export const notifyTaskEventOnTelegram = async ({
     message: fullMessage,
   });
 };
+
+/**
+ * Checks whether Telegram notifications are fully configured and enabled for a user
+ * @param {Object} recipientUser
+ * @returns {boolean}
+ */
+export const isTelegramConfigured = (recipientUser) => {
+  if (!recipientUser?.telegramSettings?.enabled) return false;
+  if (recipientUser.telegramSettings.notifyOnReminders === false) return false;
+  const chatId = recipientUser.telegramSettings?.chatId?.trim();
+  if (!chatId) return false;
+  const token =
+    (recipientUser.telegramSettings?.botToken &&
+      recipientUser.telegramSettings.botToken.trim()) ||
+    process.env.TELEGRAM_BOT_TOKEN;
+  if (!token || !token.trim()) return false;
+  return true;
+};
+
+/**
+ * Dedicated dispatch function for task due date reminders via Telegram.
+ * Reuses sendTelegramMessage and HTML escaping while isolating failure cases.
+ *
+ * @param {Object} params
+ * @param {Object} params.recipientUser - Populated user model with telegramSettings
+ * @param {Object} params.task - Populated task document
+ * @param {string} params.reminderStage - 'day_before' | 'due_today'
+ * @param {string} params.dueDateKey - 'YYYY-MM-DD'
+ * @returns {Promise<{ success: boolean, reason?: string, skipped?: boolean }>}
+ */
+export const sendTaskReminderTelegram = async ({
+  recipientUser,
+  task,
+  reminderStage,
+  dueDateKey,
+}) => {
+  if (!isTelegramConfigured(recipientUser)) {
+    return {
+      success: false,
+      skipped: true,
+      reason: 'TELEGRAM_NOT_CONFIGURED_OR_DISABLED',
+    };
+  }
+
+  const { botToken, chatId } = recipientUser.telegramSettings;
+  const isDueToday = reminderStage === 'due_today';
+
+  const headerTitle = isDueToday
+    ? '🚨 <b>یادآوری: سررسید تسک امروز است!</b>'
+    : '⏰ <b>یادآوری: سررسید تسک فردا است</b>';
+
+  const stageNotice = isDueToday
+    ? 'امروز آخرین مهلت تعیین‌شده برای انجام این تسک می‌باشد.'
+    : 'فردا موعد مقرر برای تحویل و انجام این تسک است.';
+
+  const priorityBadge =
+    task.priority === 'urgent'
+      ? '🔴 فوری (Urgent)'
+      : task.priority === 'high'
+      ? '🟠 بالا (High)'
+      : task.priority === 'low'
+      ? '🟢 پایین (Low)'
+      : '🔵 متوسط (Medium)';
+
+  const messageLines = [
+    headerTitle,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+    `⚡ <b>اولویت:</b> ${priorityBadge}`,
+    `📅 <b>تاریخ سررسید:</b> <code>${escapeHtml(dueDateKey)}</code>`,
+    `ℹ️ <i>${stageNotice}</i>`,
+  ];
+
+  if (task.description && task.description.trim()) {
+    const previewDesc =
+      task.description.length > 140
+        ? task.description.substring(0, 137) + '...'
+        : task.description;
+    messageLines.push(`📋 <b>توضیحات:</b> ${escapeHtml(previewDesc)}`);
+  }
+
+  messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  messageLines.push(`⏱️ <i>ارسال خودکار توسط سیستم هوشمند Taskera</i>`);
+
+  try {
+    return await sendTelegramMessage({
+      botToken,
+      chatId,
+      message: messageLines.filter(Boolean).join('\n'),
+    });
+  } catch (error) {
+    return { success: false, reason: error.message };
+  }
+};
+

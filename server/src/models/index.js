@@ -6,3 +6,9 @@ export { default as Comment } from './Comment.js';
 export { default as ActivityLog, ACTIVITY_ACTIONS } from './ActivityLog.js';
 export { default as Notification, NOTIFICATION_TYPES } from './Notification.js';
 export { default as Category } from './Category.js';
+export {
+  default as TaskReminderDelivery,
+  REMINDER_STAGES,
+  DELIVERY_CHANNELS,
+  DELIVERY_STATUS,
+} from './TaskReminderDelivery.js';

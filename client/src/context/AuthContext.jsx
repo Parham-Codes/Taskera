@@ -25,6 +25,24 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // Synchronize browser detected IANA time zone with backend user profile
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (browserTimezone && user.timezone !== browserTimezone) {
+        api
+          .patch('/auth/timezone', { timezone: browserTimezone })
+          .then((res) => {
+            if (res.data?.success && res.data?.data?.user) {
+              setUser(res.data.data.user);
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {}
+  }, [user]);
+
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     if (res.data?.success && res.data?.data?.user) {

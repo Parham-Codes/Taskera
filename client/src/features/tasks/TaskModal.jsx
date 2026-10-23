@@ -10,6 +10,7 @@ export const TaskModal = ({
   onClose,
   onSubmit,
   initialTask = null,
+  defaultDueDate = '',
   onOpenCategoryManager,
 }) => {
   const { activeWorkspace, members } = useWorkspace();
@@ -43,14 +44,14 @@ export const TaskModal = ({
       setDescription('');
       setPriority('medium');
       setStatus('todo');
-      setDueDate('');
+      setDueDate(defaultDueDate || '');
       setAssignedTo('');
       setCategoryId('');
       setSubtasks([]);
     }
     setNewSubtaskTitle('');
     setError('');
-  }, [initialTask, isOpen]);
+  }, [initialTask, isOpen, defaultDueDate]);
 
   const handleAddSubtask = () => {
     if (!newSubtaskTitle.trim()) return;

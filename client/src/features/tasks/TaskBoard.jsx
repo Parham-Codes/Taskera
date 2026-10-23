@@ -23,6 +23,7 @@ import { TaskCategoryFilterBar } from './components/board/TaskCategoryFilterBar.
 import { TaskKanbanBoard } from './components/board/TaskKanbanBoard.jsx';
 import { TaskFocusedStackView } from './components/board/TaskFocusedStackView.jsx';
 import { TaskListView } from './components/board/TaskListView.jsx';
+import { TaskCalendarView } from './components/board/TaskCalendarView.jsx';
 import { formatTaskDate } from './utils/taskHelpers.js';
 
 export const TaskBoard = ({
@@ -56,6 +57,7 @@ export const TaskBoard = ({
   const [activeDetailTaskId, setActiveDetailTaskId] = useState(null);
   const [activeCommentTask, setActiveCommentTask] = useState(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
 
   // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState(null);
@@ -130,7 +132,7 @@ export const TaskBoard = ({
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = { limit: 100 };
       if (activeWorkspace?.id) {
         params.organizationId = activeWorkspace.id;
       }
@@ -266,6 +268,29 @@ export const TaskBoard = ({
       }
     }
     setEditingTask(null);
+    setCalendarSelectedDate(null);
+  };
+
+  const handleDueDateChange = async (taskId, newDueDate) => {
+    if (!taskId) return;
+    const task = allTasks.find((t) => t._id === taskId);
+    if (!task) return;
+    const prevDueDate = task.dueDate;
+
+    // Optimistically update dueDate
+    setAllTasks((prev) =>
+      prev.map((t) => (t._id === taskId ? { ...t, dueDate: newDueDate } : t))
+    );
+
+    try {
+      await api.patch(`/tasks/${taskId}`, { dueDate: newDueDate });
+    } catch (err) {
+      console.error('Failed to update task due date on drop:', err);
+      // Rollback on failure
+      setAllTasks((prev) =>
+        prev.map((t) => (t._id === taskId ? { ...t, dueDate: prevDueDate } : t))
+      );
+    }
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
@@ -383,6 +408,7 @@ export const TaskBoard = ({
 
   const handleOpenNewTask = () => {
     setEditingTask(null);
+    setCalendarSelectedDate(null);
     onOpenTaskModal();
   };
 
@@ -435,6 +461,21 @@ export const TaskBoard = ({
                 />
               ))}
             </div>
+          ) : viewMode === 'calendar' ? (
+            /* Calendar View */
+            <TaskCalendarView
+              filteredTasks={filteredTasks}
+              onOpenDetail={(task) => setActiveDetailTaskId(task._id)}
+              onSelectDate={(dateKey) => {
+                setCalendarSelectedDate(dateKey);
+                setEditingTask(null);
+                onOpenTaskModal();
+              }}
+              onDueDateChange={handleDueDateChange}
+              onNewTask={handleOpenNewTask}
+              lang={lang}
+              t={t}
+            />
           ) : sidebarFilter === 'all' && viewMode === 'kanban' ? (
             /* 4-Column Kanban Board */
             <TaskKanbanBoard
@@ -521,10 +562,12 @@ export const TaskBoard = ({
         isOpen={taskModalOpen}
         onClose={() => {
           setEditingTask(null);
+          setCalendarSelectedDate(null);
           onCloseTaskModal();
         }}
         onSubmit={handleSaveTask}
         initialTask={editingTask}
+        defaultDueDate={calendarSelectedDate || ''}
         onOpenCategoryManager={onOpenCategoryManager}
       />
 

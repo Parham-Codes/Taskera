@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, logout, refresh, getMe } from '../controllers/authController.js';
+import { register, login, logout, refresh, getMe, updateTimezone } from '../controllers/authController.js';
 import { validate } from '../middlewares/validate.js';
 import { protectAuth } from '../middlewares/auth.js';
 import { authRateLimiter } from '../middlewares/rateLimiter.js';
@@ -15,5 +15,6 @@ router.post('/logout', logout);
 
 // Protected session route
 router.get('/me', protectAuth, getMe);
+router.patch('/timezone', protectAuth, updateTimezone);
 
 export default router;
