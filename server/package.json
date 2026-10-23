@@ -7,8 +7,10 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js",
+    "test:auth": "node tests/auth.test.js",
     "test:integration": "node tests/integration.test.js",
+    "test:rbac": "node tests/rbac.test.js",
     "dev": "node --watch src/server.js"
   },
   "dependencies": {

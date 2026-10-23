@@ -16,6 +16,7 @@ import {
   Tag,
   Command,
   Send,
+  MoreHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWorkspace } from '../context/WorkspaceContext.jsx';
@@ -45,10 +46,12 @@ export const TopHeader = ({
 
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const priorityMenuRef = useRef(null);
   const notificationsMenuRef = useRef(null);
+  const moreMenuRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -57,6 +60,9 @@ export const TopHeader = ({
       }
       if (notificationsMenuRef.current && !notificationsMenuRef.current.contains(e.target)) {
         setNotificationsMenuOpen(false);
+      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) {
+        setMoreMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -87,9 +93,9 @@ export const TopHeader = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 sm:gap-4">
+    <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
       {/* Left: Mobile Menu & Workspace Info */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
         <button
           onClick={onToggleSidebar}
           className="lg:hidden p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
@@ -98,11 +104,11 @@ export const TopHeader = ({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-sm sm:text-base font-extrabold tracking-tight truncate text-slate-900 dark:text-white">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <h2 className="text-xs sm:text-sm md:text-base font-extrabold tracking-tight truncate text-slate-900 dark:text-white max-w-[120px] xs:max-w-[160px] sm:max-w-[220px] md:max-w-xs">
             {activeWorkspace ? activeWorkspace.name : t('personalSpace')}
           </h2>
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shrink-0">
+          <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-bold bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 shrink-0">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
                 activeWorkspace ? 'bg-brand-500' : 'bg-emerald-500'
@@ -113,13 +119,13 @@ export const TopHeader = ({
         </div>
       </div>
 
-      {/* Right: Search, Notification Bell, Priority Dropdown, Views, and Actions */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
-        {/* Desktop Search / Command Palette Launcher */}
+      {/* Right: Search, Actions, View Switcher, and User Controls */}
+      <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
+        {/* Desktop Search / Command Palette Launcher (>= 1280px) */}
         <button
           onClick={onOpenCommandPalette}
           type="button"
-          className="relative hidden md:flex items-center justify-between w-48 lg:w-64 ps-8 pe-2.5 py-1.5 text-xs rounded-xl glass-input text-slate-400 hover:border-brand-500/40 transition-all text-start group shadow-2xs"
+          className="relative hidden xl:flex items-center justify-between w-52 xl:w-60 ps-8 pe-2.5 py-1.5 text-xs rounded-xl glass-input text-slate-400 hover:border-brand-500/40 transition-all text-start group shadow-2xs"
         >
           <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-500 transition-colors absolute start-2.5 top-2.5 pointer-events-none" />
           <span className="truncate">{t('search')}...</span>
@@ -128,20 +134,21 @@ export const TopHeader = ({
           </span>
         </button>
 
-        {/* Mobile Search / Command Palette Toggle */}
+        {/* Compact Search Button (< 1280px: Mobile, Tablet & Compact Desktop) */}
         <button
           onClick={onOpenCommandPalette}
-          className="md:hidden p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300"
+          className="xl:hidden p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs"
           title={t('commandPalette')}
+          aria-label={t('commandPalette')}
         >
           <Search className="w-4 h-4" />
         </button>
 
-        {/* Telegram Settings Quick Button */}
+        {/* Desktop Direct Quick Tool Buttons (Desktop xl+ >= 1280px) */}
         {onOpenTelegramSettings && (
           <button
             onClick={onOpenTelegramSettings}
-            className={`relative p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 hover:border-blue-500/40 transition-all shadow-2xs ${
+            className={`relative hidden xl:flex p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 hover:border-blue-500/40 transition-all shadow-2xs ${
               user?.telegramSettings?.enabled ? 'text-blue-500 dark:text-blue-400' : ''
             }`}
             title={t('telegramSettingsTitle')}
@@ -153,36 +160,138 @@ export const TopHeader = ({
           </button>
         )}
 
-        {/* Category Manager Quick Button */}
         {onOpenCategoryManager && (
           <button
             onClick={onOpenCategoryManager}
-            className="p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs"
+            className="hidden xl:flex p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs"
             title={t('manageCategories')}
           >
             <Tag className="w-4 h-4" />
           </button>
         )}
 
-        {/* AI Markdown Import & Excel Export Button */}
         {onOpenImportExport && (
           <button
             onClick={() => onOpenImportExport('import')}
-            className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs group"
+            className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs group"
             title={lang === 'fa' ? 'ورود هوشمند با AI و خروجی اکسل' : 'AI Import & Excel Export'}
           >
             <Sparkles className="w-4 h-4 text-brand-500 group-hover:rotate-12 transition-transform" />
-            <span className="hidden xl:inline text-xs font-bold text-slate-700 dark:text-slate-200">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
               {lang === 'fa' ? 'ورود هوشمند AI' : 'AI Import'}
             </span>
           </button>
         )}
 
-        {/* Custom Glass Priority Popover */}
+        {/* More Actions Popover for Mobile & Tablet (< xl) */}
+        <div className="relative xl:hidden" ref={moreMenuRef}>
+          <button
+            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+            className={`p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs ${
+              moreMenuOpen ? 'border-brand-500/50 text-brand-500 bg-brand-500/10' : ''
+            }`}
+            title={lang === 'fa' ? 'ابزارها و امکانات بیشتر' : 'More Options'}
+            aria-label="More options"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+
+          {moreMenuOpen && (
+            <div className="absolute top-full end-0 mt-2 w-56 glass-panel rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 p-2 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-1">
+              <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                {lang === 'fa' ? 'ابزارهای سریع' : 'Quick Tools'}
+              </div>
+
+              {/* View Switcher inside More Menu for ultra-narrow screens (< sm) */}
+              <div className="sm:hidden flex items-center justify-between p-1.5 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 mb-1">
+                <span className="text-xs font-semibold px-1 text-slate-600 dark:text-slate-300">
+                  {lang === 'fa' ? 'نمای تسک‌ها:' : 'View Mode:'}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      onViewModeChange('kanban');
+                      setMoreMenuOpen(false);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                      viewMode === 'kanban'
+                        ? 'bg-brand-500 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>{t('boardView')}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onViewModeChange('list');
+                      setMoreMenuOpen(false);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-brand-500 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400'
+                    }`}
+                  >
+                    <ListIcon className="w-3.5 h-3.5" />
+                    <span>{t('listView')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {onOpenImportExport && (
+                <button
+                  onClick={() => {
+                    onOpenImportExport('import');
+                    setMoreMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors text-start"
+                >
+                  <Sparkles className="w-4 h-4 text-brand-500 shrink-0" />
+                  <span>{lang === 'fa' ? 'ورود هوشمند با AI / خروجی' : 'AI Import & Export'}</span>
+                </button>
+              )}
+
+              {onOpenCategoryManager && (
+                <button
+                  onClick={() => {
+                    onOpenCategoryManager();
+                    setMoreMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors text-start"
+                >
+                  <Tag className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{t('manageCategories')}</span>
+                </button>
+              )}
+
+              {onOpenTelegramSettings && (
+                <button
+                  onClick={() => {
+                    onOpenTelegramSettings();
+                    setMoreMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors text-start"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <TelegramIcon className="w-4 h-4 text-blue-500 shrink-0" />
+                    <span>{t('telegramSettingsTitle')}</span>
+                  </div>
+                  {user?.telegramSettings?.enabled && (
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Priority Filter Popover */}
         <div className="relative" ref={priorityMenuRef}>
           <button
             onClick={() => setPriorityMenuOpen(!priorityMenuOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-xl glass-input hover:border-brand-500/40 transition-all font-semibold text-slate-700 dark:text-slate-300 shadow-xs"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 text-xs rounded-xl glass-input hover:border-brand-500/40 transition-all font-semibold text-slate-700 dark:text-slate-300 shadow-xs"
+            title={t('priority')}
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-brand-500 shrink-0" />
             <span className="hidden sm:inline-flex items-center gap-1.5">
@@ -225,12 +334,39 @@ export const TopHeader = ({
           )}
         </div>
 
+        {/* View Switcher: Kanban / List (Hidden on tiny mobile < sm, accessible via More Menu) */}
+        <div className="hidden sm:flex items-center glass-panel p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+          <button
+            onClick={() => onViewModeChange('kanban')}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === 'kanban'
+                ? 'bg-brand-500 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            }`}
+            title={t('boardView')}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onViewModeChange('list')}
+            className={`p-1.5 rounded-lg transition-colors ${
+              viewMode === 'list'
+                ? 'bg-brand-500 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+            }`}
+            title={t('listView')}
+          >
+            <ListIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
         {/* In-App Notifications Bell & Floating Popover */}
         <div className="relative" ref={notificationsMenuRef}>
           <button
             onClick={() => setNotificationsMenuOpen(!notificationsMenuOpen)}
             className="p-2 rounded-xl glass-input hover:border-brand-500/40 text-slate-600 dark:text-slate-300 transition-all relative"
             title={t('notificationsTitle')}
+            aria-label={t('notificationsTitle')}
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -240,9 +376,9 @@ export const TopHeader = ({
             )}
           </button>
 
-          {/* Floating Notifications Center */}
+          {/* Floating Notifications Center (Responsive width for mobile & tablet) */}
           {notificationsMenuOpen && (
-            <div className="absolute top-full end-0 mt-2 w-80 sm:w-96 glass-panel rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2">
+            <div className="fixed sm:absolute top-16 sm:top-full inset-x-3 sm:inset-x-auto sm:end-0 mt-2 sm:w-96 max-w-sm glass-panel rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800 px-1">
                 <div className="flex items-center gap-1.5">
                   <Bell className="w-4 h-4 text-brand-500" />
@@ -319,36 +455,10 @@ export const TopHeader = ({
           )}
         </div>
 
-        {/* View Switcher: Kanban / List */}
-        <div className="flex items-center glass-panel p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
-          <button
-            onClick={() => onViewModeChange('kanban')}
-            className={`p-1.5 rounded-lg transition-colors ${
-              viewMode === 'kanban'
-                ? 'bg-brand-500 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-            }`}
-            title={t('boardView')}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onViewModeChange('list')}
-            className={`p-1.5 rounded-lg transition-colors ${
-              viewMode === 'list'
-                ? 'bg-brand-500 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-            }`}
-            title={t('listView')}
-          >
-            <ListIcon className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
         {/* "+ New Task" Quick Button */}
         <button
           onClick={onOpenNewTask}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 active:scale-[0.98] transition-all shadow-md shadow-brand-500/25 shrink-0"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 active:scale-[0.98] transition-all shadow-md shadow-brand-500/25 shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">{t('newTask')}</span>

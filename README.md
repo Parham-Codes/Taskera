@@ -122,6 +122,7 @@ PORT=7000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 MONGO_URI=your_mongodb_connection_string
+# JWT Secrets (Mandatory - server halts if not defined)
 JWT_ACCESS_SECRET=your_jwt_access_secret_key_here
 JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_here
 TELEGRAM_BOT_TOKEN=optional_default_telegram_bot_token

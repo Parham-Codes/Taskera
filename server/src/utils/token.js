@@ -1,14 +1,40 @@
+import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_in_prod';
-const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_in_prod';
+// Ensure .env is resolved even when executed outside server/ directory
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+const getRequiredSecret = (secretName) => {
+  const secret = process.env[secretName];
+  if (!secret || typeof secret !== 'string' || secret.trim() === '') {
+    const errorMsg = `[FATAL ERROR] Required environment variable "${secretName}" is not set. The application cannot start without secure JWT secrets. Please define "${secretName}" in your server/.env file.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+  return secret;
+};
+
+export const getAccessTokenSecret = () => getRequiredSecret('JWT_ACCESS_SECRET');
+export const getRefreshTokenSecret = () => getRequiredSecret('JWT_REFRESH_SECRET');
+
+// Validate immediately on module initialization to fail fast on startup if secrets are omitted
+export const validateJwtSecrets = () => {
+  getAccessTokenSecret();
+  getRefreshTokenSecret();
+};
+
+validateJwtSecrets();
 
 export const generateTokens = (userId) => {
-  const accessToken = jwt.sign({ sub: userId }, ACCESS_TOKEN_SECRET, {
+  const accessToken = jwt.sign({ sub: userId }, getAccessTokenSecret(), {
     expiresIn: '15m',
   });
 
-  const refreshToken = jwt.sign({ sub: userId }, REFRESH_TOKEN_SECRET, {
+  const refreshToken = jwt.sign({ sub: userId }, getRefreshTokenSecret(), {
     expiresIn: '7d',
   });
 
@@ -16,11 +42,11 @@ export const generateTokens = (userId) => {
 };
 
 export const verifyAccessToken = (token) => {
-  return jwt.verify(token, ACCESS_TOKEN_SECRET);
+  return jwt.verify(token, getAccessTokenSecret());
 };
 
 export const verifyRefreshToken = (token) => {
-  return jwt.verify(token, REFRESH_TOKEN_SECRET);
+  return jwt.verify(token, getRefreshTokenSecret());
 };
 
 export const setAuthCookies = (res, { accessToken, refreshToken }) => {

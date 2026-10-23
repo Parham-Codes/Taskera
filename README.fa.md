@@ -113,6 +113,7 @@ PORT=7000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 MONGO_URI=mongodb_connection_string_شما
+# کلیدهای JWT اجباری هستند و در صورت عدم تنظیم، برنامه متوقف می‌شود
 JWT_ACCESS_SECRET=کلید_امنیتی_اکسس_توکن
 JWT_REFRESH_SECRET=کلید_امنیتی_رفرش_توکن
 TELEGRAM_BOT_TOKEN=توکن_اختیاری_پیشفرض_بات_تلگرام

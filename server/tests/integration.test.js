@@ -1,6 +1,8 @@
+import './testSetup.js';
 import { server } from '../src/app.js';
 import connectDB from '../src/config/db.js';
 import { User, Organization, OrganizationMember, Task, Comment, ActivityLog, Category } from '../src/models/index.js';
+import { generateTokens, verifyAccessToken } from '../src/utils/token.js';
 
 const runVerification = async () => {
   await connectDB();
@@ -21,6 +23,14 @@ const runVerification = async () => {
   // Verify password hashed
   const checkPass = await manager.comparePassword('securePassword123');
   console.log('2. Password Hashing & Comparison: PASS (Matches:', checkPass, ')');
+
+  // Verify JWT Token generation & verification using active secrets
+  const tokens = generateTokens(manager._id.toString());
+  const verified = verifyAccessToken(tokens.accessToken);
+  if (verified.sub !== manager._id.toString()) {
+    throw new Error('JWT verification payload mismatch');
+  }
+  console.log('2.1 JWT Tokens & Secret Verification: PASS (Subject:', verified.sub, ')');
 
   // 2. Test Personal Task Creation (Dual-mode: Solo space)
   const personalTask = await Task.create({

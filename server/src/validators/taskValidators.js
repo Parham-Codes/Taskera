@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TASK_STATUS, TASK_PRIORITY } from '../models/Task.js';
+import { TASK_STATUS, TASK_PRIORITY } from '../models/task.js';
 
 const objectIdRegex = /^[0-9a-fA-F]{24}$/;
 

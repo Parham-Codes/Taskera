@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import Category from '../models/Category.js';
-import Task from '../models/Task.js';
+import Task from '../models/task.js';
 import OrganizationMember, { ORG_ROLES } from '../models/OrganizationMember.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 

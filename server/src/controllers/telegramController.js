@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User from '../models/user.js';
 import { sendTelegramTestMessage } from '../services/telegramService.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 

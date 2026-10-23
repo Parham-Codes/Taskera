@@ -364,6 +364,27 @@ export const updateTask = async (req, res, next) => {
         statusCode: 403,
       });
     }
+    // Verify assignee membership if assignedTo is being updated
+    if (updates.assignedTo) {
+      if (task.organizationId) {
+        const assigneeMembership = await OrganizationMember.findOne({
+          organizationId: task.organizationId,
+          userId: updates.assignedTo,
+        }).lean();
+
+        if (!assigneeMembership) {
+          return errorResponse(res, {
+            message: 'Assigned user is not a member of this organization',
+            statusCode: 400,
+          });
+        }
+      } else if (updates.assignedTo.toString() !== req.user.id) {
+        return errorResponse(res, {
+          message: 'Personal tasks cannot be assigned to another user',
+          statusCode: 400,
+        });
+      }
+    }
 
     const previousStatus = task.status;
     const previousAssignee = task.assignedTo?.toString();
@@ -510,6 +531,10 @@ export const startTimeTracking = async (req, res, next) => {
   try {
     const { taskId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return errorResponse(res, { message: 'Invalid Task ID format', statusCode: 400 });
+    }
+
     const task = await Task.findById(taskId);
     if (!task) {
       return errorResponse(res, { message: 'Task not found', statusCode: 404 });
@@ -606,9 +631,30 @@ export const stopTimeTracking = async (req, res, next) => {
   try {
     const { taskId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return errorResponse(res, { message: 'Invalid Task ID format', statusCode: 400 });
+    }
+
     const task = await Task.findById(taskId);
     if (!task) {
       return errorResponse(res, { message: 'Task not found', statusCode: 404 });
+    }
+
+    // Authorization
+    if (task.organizationId) {
+      const membership = await OrganizationMember.findOne({
+        organizationId: task.organizationId,
+        userId: req.user._id,
+      }).lean();
+
+      if (!membership) {
+        return errorResponse(res, {
+          message: 'Access denied: You are not a member of this organization',
+          statusCode: 403,
+        });
+      }
+    } else if (task.createdBy.toString() !== req.user.id) {
+      return errorResponse(res, { message: 'Access denied to this personal task', statusCode: 403 });
     }
 
     // Find the unended timer for this user
@@ -659,6 +705,10 @@ export const stopTimeTracking = async (req, res, next) => {
 export const toggleSubtask = async (req, res, next) => {
   try {
     const { taskId, subtaskId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return errorResponse(res, { message: 'Invalid Task ID format', statusCode: 400 });
+    }
 
     const task = await Task.findById(taskId);
     if (!task) {

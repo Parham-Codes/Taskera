@@ -31,8 +31,9 @@ export const validate = (schema) => (req, res, next) => {
 
     next();
   } catch (err) {
-    if (err.errors) {
-      const formattedErrors = err.errors.map((e) => ({
+    const issues = err.issues || err.errors;
+    if (issues) {
+      const formattedErrors = issues.map((e) => ({
         field: e.path.join('.').replace(/^(body|query|params)\./, ''),
         message: e.message,
       }));
