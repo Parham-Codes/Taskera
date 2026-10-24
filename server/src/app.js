@@ -15,6 +15,12 @@ import { errorHandler } from './middlewares/errorHandler.js';
 
 export const server = express();
 
+// Configure Express proxy trust for reverse proxies (Render, Cloudflare, etc.)
+// Setting to 1 trusts the first hop (the front-facing reverse proxy), ensuring req.ip
+// correctly resolves to the real client IP from X-Forwarded-For and resolves the
+// express-rate-limit ERR_ERL_UNEXPECTED_X_FORWARDED_FOR warning securely.
+server.set('trust proxy', 1);
+
 // Security HTTP headers
 server.use(helmet());
 

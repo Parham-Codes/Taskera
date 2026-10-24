@@ -262,6 +262,43 @@ const runCrossOriginAuthTests = async () => {
     );
     console.log('  3.3 Arbitrary path sharing /api/internal prefix is strictly blocked: PASS');
 
+    // =========================================================================
+    // [4] Express Proxy Trust & Rate Limiter Client IP Resolution
+    // =========================================================================
+    console.log('\n[4] Express Proxy Trust & Rate Limiter IP Resolution:');
+
+    // 4.1 Server trust proxy setting is configured to 1 (trust 1 front-facing proxy hop)
+    assert(server.get('trust proxy') === 1, `Expected server trust proxy to be 1, got ${server.get('trust proxy')}`);
+    console.log('  4.1 server.get("trust proxy") is configured to 1: PASS');
+
+    // 4.2 X-Forwarded-For header processed cleanly by rate limiter without ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+    const resProxyIp1 = await fetch(`${baseUrl}/api/auth/me`, {
+      method: 'GET',
+      headers: {
+        'X-Forwarded-For': '203.0.113.195',
+      },
+    });
+    // Should get 401 Unauthorized (missing auth cookie) with standard RateLimit headers, NOT an unhandled 500
+    assert(resProxyIp1.status === 401, `Expected 401 from auth check, got ${resProxyIp1.status}`);
+    assert(
+      resProxyIp1.headers.has('ratelimit-limit') || resProxyIp1.headers.has('x-ratelimit-limit'),
+      'Rate limit headers must be present on /api route'
+    );
+    console.log('  4.2 X-Forwarded-For header handled without ERR_ERL_UNEXPECTED_X_FORWARDED_FOR: PASS');
+
+    // 4.3 Different client IPs tracked in distinct rate limiter buckets
+    const resProxyIp2 = await fetch(`${baseUrl}/api/auth/me`, {
+      method: 'GET',
+      headers: {
+        'X-Forwarded-For': '198.51.100.42',
+      },
+    });
+    assert(resProxyIp2.status === 401, 'Request from distinct IP returns 401');
+    const remainingIp2 = parseInt(resProxyIp2.headers.get('ratelimit-remaining') || resProxyIp2.headers.get('x-ratelimit-remaining'), 10);
+    // Since 198.51.100.42 made 1 request to generalApiLimiter (max 300), remaining must be 299
+    assert(remainingIp2 === 299, `Expected remaining to be 299 for fresh IP, got ${remainingIp2}`);
+    console.log('  4.3 Rate limiter isolates distinct client IPs resolved through proxy: PASS');
+
     if (origSecret) {
       process.env.REMINDER_TRIGGER_SECRET = origSecret;
     } else {
