@@ -88,26 +88,53 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Safe JSON serialization (strip password and internal fields)
-userSchema.methods.toSafeJSON = function () {
-  return {
-    id: this._id,
-    name: this.name,
-    email: this.email,
-    avatar: this.avatar,
-    timezone: this.timezone || 'UTC',
-    telegramSettings: this.telegramSettings || {
+// Sanitize Telegram settings object for frontend serialization
+export const sanitizeTelegramSettings = (settings) => {
+  if (!settings) {
+    return {
       enabled: false,
-      botToken: '',
       chatId: '',
+      botTokenConfigured: false,
       notifyOnCreated: true,
       notifyOnAssigned: true,
       notifyOnStatusChange: true,
       notifyOnReminders: true,
-    },
-    createdAt: this.createdAt,
-    updatedAt: this.updatedAt,
+    };
+  }
+
+  const botToken = settings.botToken;
+  const isConfigured = Boolean(typeof botToken === 'string' && botToken.trim().length > 0);
+
+  return {
+    enabled: Boolean(settings.enabled),
+    chatId: settings.chatId || '',
+    botTokenConfigured: isConfigured,
+    notifyOnCreated: settings.notifyOnCreated !== false,
+    notifyOnAssigned: settings.notifyOnAssigned !== false,
+    notifyOnStatusChange: settings.notifyOnStatusChange !== false,
+    notifyOnReminders: settings.notifyOnReminders !== false,
   };
+};
+
+// Sanitize user object for frontend serialization
+export const sanitizeUser = (user) => {
+  if (!user) return null;
+  const rawId = user._id || user.id;
+  return {
+    id: rawId ? rawId.toString() : undefined,
+    name: user.name,
+    email: user.email,
+    avatar: user.avatar || null,
+    timezone: user.timezone || 'UTC',
+    telegramSettings: sanitizeTelegramSettings(user.telegramSettings),
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+};
+
+// Safe JSON serialization (strip password, refreshToken, and sensitive botToken)
+userSchema.methods.toSafeJSON = function () {
+  return sanitizeUser(this);
 };
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

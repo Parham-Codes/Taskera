@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client.js';
 
 const AuthContext = createContext();
@@ -67,8 +67,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = useCallback((updates) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const resolved = typeof updates === 'function' ? updates(prev) : updates;
+      return {
+        ...prev,
+        ...resolved,
+      };
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, setUser, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

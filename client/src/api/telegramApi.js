@@ -6,7 +6,7 @@ export const telegramApi = {
    */
   getSettings: async () => {
     const response = await api.get('/telegram/settings');
-    return response.data.settings;
+    return response.data?.data?.settings ?? response.data?.settings;
   },
 
   /**
@@ -14,7 +14,7 @@ export const telegramApi = {
    */
   updateSettings: async (settingsData) => {
     const response = await api.put('/telegram/settings', settingsData);
-    return response.data.settings;
+    return response.data?.data?.settings ?? response.data?.settings;
   },
 
   /**
@@ -22,6 +22,6 @@ export const telegramApi = {
    */
   testNotification: async ({ botToken, chatId }) => {
     const response = await api.post('/telegram/test', { botToken, chatId });
-    return response;
+    return response.data;
   },
 };

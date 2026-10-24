@@ -1,4 +1,4 @@
-export { default as User } from './user.js';
+export { default as User, sanitizeTelegramSettings, sanitizeUser } from './user.js';
 export { default as Organization } from './Organization.js';
 export { default as OrganizationMember, ORG_ROLES } from './OrganizationMember.js';
 export { default as Task, TASK_STATUS, TASK_PRIORITY } from './task.js';

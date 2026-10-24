@@ -13,6 +13,18 @@ const escapeHtml = (text) => {
 };
 
 /**
+ * Sanitize error messages and reason strings to prevent any bot token leak
+ */
+export const sanitizeTelegramErrorMessage = (text, token) => {
+  if (!text) return '';
+  let clean = String(text);
+  if (token && typeof token === 'string' && token.trim().length > 0) {
+    clean = clean.split(token.trim()).join('[REDACTED]');
+  }
+  return clean.replace(/bot\d+:[A-Za-z0-9_-]+/g, 'bot[REDACTED]');
+};
+
+/**
  * Dispatch a message using the Telegram Bot API
  * @param {Object} params
  * @param {string} params.botToken - User-specific bot token or fallback default
@@ -50,14 +62,16 @@ export const sendTelegramMessage = async ({ botToken, chatId, message }) => {
     const data = await response.json();
 
     if (!data.ok) {
-      console.error('[TelegramService] Telegram API error:', data.description);
-      return { success: false, reason: data.description, isConfirmedFailure: true };
+      const cleanDesc = sanitizeTelegramErrorMessage(data.description, token);
+      console.error('[TelegramService] Telegram API error:', cleanDesc);
+      return { success: false, reason: cleanDesc, isConfirmedFailure: true };
     }
 
     return { success: true, result: data.result };
   } catch (error) {
-    console.error('[TelegramService] Network/Transport exception:', error.message);
-    return { success: false, reason: error.message, isConfirmedFailure: false, isUnknown: true };
+    const cleanMsg = sanitizeTelegramErrorMessage(error.message, token);
+    console.error('[TelegramService] Network/Transport exception:', cleanMsg);
+    return { success: false, reason: cleanMsg, isConfirmedFailure: false, isUnknown: true };
   }
 };
 

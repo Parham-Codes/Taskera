@@ -82,6 +82,8 @@ const runAuthTests = async () => {
     assert(regData.data?.user?.email === TEST_EMAIL, `Expected email ${TEST_EMAIL}`);
     assert(regData.data?.user?.password === undefined, 'Password must not be returned in response');
     assert(regData.data?.user?.refreshToken === undefined, 'Refresh token must not be leaked in response JSON');
+    assert(regData.data?.user?.telegramSettings?.botToken === undefined, 'botToken must not be leaked in register response');
+    assert(typeof regData.data?.user?.telegramSettings?.botTokenConfigured === 'boolean', 'botTokenConfigured boolean must be present');
 
     const regCookies = parseSetCookies(regRes.headers.getSetCookie());
     assert(regCookies.accessToken?.value, 'Missing accessToken cookie in register response');
@@ -162,6 +164,7 @@ const runAuthTests = async () => {
     const loginData = await loginRes.json();
     assert(loginRes.status === 200, `Expected status 200 on login, got ${loginRes.status}`);
     assert(loginData.success === true, 'Expected success === true on login');
+    assert(loginData.data?.user?.telegramSettings?.botToken === undefined, 'botToken must not be leaked in login response');
     sessionCookies = parseSetCookies(loginRes.headers.getSetCookie());
     assert(sessionCookies.accessToken?.value, 'Missing accessToken on login');
     assert(sessionCookies.refreshToken?.value, 'Missing refreshToken on login');
@@ -214,6 +217,7 @@ const runAuthTests = async () => {
     const validCookieData = await validCookieRes.json();
     assert(validCookieRes.status === 200, `Expected status 200 with valid cookie, got ${validCookieRes.status}`);
     assert(validCookieData.data?.user?.email === TEST_EMAIL, 'Returned user email must match');
+    assert(validCookieData.data?.user?.telegramSettings?.botToken === undefined, 'botToken must not be leaked in /api/auth/me');
     console.log('  3.4 Valid Token Access via Cookie: PASS (Status 200 Authorized)');
 
     // 3.5 Valid Token Access via Authorization Header (Bearer fallback)

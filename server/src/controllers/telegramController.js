@@ -1,5 +1,8 @@
-import User from '../models/user.js';
-import { sendTelegramTestMessage } from '../services/telegramService.js';
+import User, { sanitizeTelegramSettings } from '../models/user.js';
+import {
+  sendTelegramTestMessage,
+  sanitizeTelegramErrorMessage,
+} from '../services/telegramService.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 
 /**
@@ -12,19 +15,11 @@ export const getTelegramSettings = async (req, res, next) => {
       return errorResponse(res, { message: 'User not found', statusCode: 404 });
     }
 
-    const settings = user.telegramSettings || {
-      enabled: false,
-      botToken: '',
-      chatId: '',
-      notifyOnCreated: true,
-      notifyOnAssigned: true,
-      notifyOnStatusChange: true,
-      notifyOnReminders: true,
-    };
-
     return successResponse(res, {
       message: 'Telegram settings retrieved successfully',
-      data: { settings },
+      data: {
+        settings: sanitizeTelegramSettings(user.telegramSettings),
+      },
     });
   } catch (error) {
     next(error);
@@ -33,12 +28,17 @@ export const getTelegramSettings = async (req, res, next) => {
 
 /**
  * Update current user's Telegram notification settings
+ * Supports:
+ * - Entering a new token: replaces the saved token
+ * - Leaving token blank / undefined: preserves the saved token
+ * - Explicit clearing (clearBotToken: true or botToken: null): clears the custom token and switches to default
  */
 export const updateTelegramSettings = async (req, res, next) => {
   try {
     const {
       enabled,
       botToken,
+      clearBotToken,
       chatId,
       notifyOnCreated,
       notifyOnAssigned,
@@ -51,9 +51,20 @@ export const updateTelegramSettings = async (req, res, next) => {
       return errorResponse(res, { message: 'User not found', statusCode: 404 });
     }
 
+    // Determine target bot token:
+    // 1. Explicit clear requested
+    // 2. New token entered
+    // 3. Otherwise: preserve existing token
+    let nextBotToken = user.telegramSettings?.botToken || '';
+    if (clearBotToken === true || botToken === null) {
+      nextBotToken = '';
+    } else if (typeof botToken === 'string' && botToken.trim().length > 0) {
+      nextBotToken = botToken.trim();
+    }
+
     user.telegramSettings = {
       enabled: Boolean(enabled),
-      botToken: typeof botToken === 'string' ? botToken.trim() : user.telegramSettings?.botToken || '',
+      botToken: nextBotToken,
       chatId: typeof chatId === 'string' ? chatId.trim() : user.telegramSettings?.chatId || '',
       notifyOnCreated: notifyOnCreated !== undefined ? Boolean(notifyOnCreated) : true,
       notifyOnAssigned: notifyOnAssigned !== undefined ? Boolean(notifyOnAssigned) : true,
@@ -67,7 +78,9 @@ export const updateTelegramSettings = async (req, res, next) => {
 
     return successResponse(res, {
       message: 'Telegram settings updated successfully',
-      data: { settings: user.telegramSettings },
+      data: {
+        settings: sanitizeTelegramSettings(user.telegramSettings),
+      },
     });
   } catch (error) {
     next(error);
@@ -86,8 +99,16 @@ export const testTelegramNotification = async (req, res, next) => {
       return errorResponse(res, { message: 'User not found', statusCode: 404 });
     }
 
-    const targetToken = botToken !== undefined ? botToken : user.telegramSettings?.botToken;
-    const targetChatId = chatId !== undefined ? chatId : user.telegramSettings?.chatId;
+    // Use newly provided token if non-empty, otherwise use saved custom token
+    const targetToken =
+      typeof botToken === 'string' && botToken.trim().length > 0
+        ? botToken.trim()
+        : user.telegramSettings?.botToken || undefined;
+
+    const targetChatId =
+      typeof chatId === 'string' && chatId.trim().length > 0
+        ? chatId.trim()
+        : user.telegramSettings?.chatId;
 
     if (!targetChatId) {
       return errorResponse(res, {
@@ -103,15 +124,19 @@ export const testTelegramNotification = async (req, res, next) => {
     });
 
     if (!result.success) {
+      const cleanReason = sanitizeTelegramErrorMessage(
+        result.reason || 'اتصال برقرار نشد',
+        targetToken
+      );
       return errorResponse(res, {
-        message: `خطا در ارسال پیام تلگرام: ${result.reason || 'اتصال برقرار نشد'}`,
+        message: `خطا در ارسال پیام تلگرام: ${cleanReason}`,
         statusCode: 400,
       });
     }
 
     return successResponse(res, {
       message: 'پیام تست با موفقیت به تلگرام شما ارسال شد!',
-      data: { result },
+      data: { success: true },
     });
   } catch (error) {
     next(error);

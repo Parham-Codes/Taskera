@@ -7,11 +7,12 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js && node tests/reminder.test.js",
+    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js && node tests/reminder.test.js && node tests/telegram.test.js",
     "test:auth": "node tests/auth.test.js",
     "test:integration": "node tests/integration.test.js",
     "test:rbac": "node tests/rbac.test.js",
     "test:reminder": "node tests/reminder.test.js",
+    "test:telegram": "node tests/telegram.test.js",
     "dev": "node --watch src/server.js"
   },
   "dependencies": {

@@ -11,6 +11,8 @@ import {
   ExternalLink,
   Bell,
   Sparkles,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { TelegramIcon } from '../../components/ui/TelegramIcon.jsx';
@@ -25,6 +27,8 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
   const [enabled, setEnabled] = useState(false);
   const [chatId, setChatId] = useState('');
   const [botToken, setBotToken] = useState('');
+  const [botTokenConfigured, setBotTokenConfigured] = useState(false);
+  const [clearCustomToken, setClearCustomToken] = useState(false);
   const [notifyOnCreated, setNotifyOnCreated] = useState(true);
   const [notifyOnAssigned, setNotifyOnAssigned] = useState(true);
   const [notifyOnStatusChange, setNotifyOnStatusChange] = useState(true);
@@ -35,38 +39,50 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
   const [statusMessage, setStatusMessage] = useState(null); // { type: 'success' | 'error', text: '' }
   const [showGuide, setShowGuide] = useState(false);
 
-  // Load user settings on modal open
+  // Initialize form state whenever modal is opened
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
       setStatusMessage(null);
-      const settings = user?.telegramSettings;
-      if (settings) {
-        setEnabled(Boolean(settings.enabled));
-        setChatId(settings.chatId || '');
-        setBotToken(settings.botToken || '');
-        setNotifyOnCreated(settings.notifyOnCreated !== false);
-        setNotifyOnAssigned(settings.notifyOnAssigned !== false);
-        setNotifyOnStatusChange(settings.notifyOnStatusChange !== false);
-        setNotifyOnReminders(settings.notifyOnReminders !== false);
-      } else {
-        // Fetch from backend
-        telegramApi
-          .getSettings()
-          .then((resSettings) => {
-            if (resSettings) {
-              setEnabled(Boolean(resSettings.enabled));
-              setChatId(resSettings.chatId || '');
-              setBotToken(resSettings.botToken || '');
-              setNotifyOnCreated(resSettings.notifyOnCreated !== false);
-              setNotifyOnAssigned(resSettings.notifyOnAssigned !== false);
-              setNotifyOnStatusChange(resSettings.notifyOnStatusChange !== false);
-              setNotifyOnReminders(resSettings.notifyOnReminders !== false);
-            }
-          })
-          .catch(() => {});
-      }
+      setBotToken('');
+      setClearCustomToken(false);
+      return;
     }
-  }, [isOpen, user]);
+
+    let isSubscribed = true;
+    setStatusMessage(null);
+    setBotToken('');
+    setClearCustomToken(false);
+
+    const applySettings = (settings) => {
+      if (!settings || !isSubscribed) return;
+      setEnabled(Boolean(settings.enabled));
+      setChatId(settings.chatId || '');
+      setBotTokenConfigured(Boolean(settings.botTokenConfigured));
+      setNotifyOnCreated(settings.notifyOnCreated !== false);
+      setNotifyOnAssigned(settings.notifyOnAssigned !== false);
+      setNotifyOnStatusChange(settings.notifyOnStatusChange !== false);
+      setNotifyOnReminders(settings.notifyOnReminders !== false);
+    };
+
+    // Immediately seed with existing AuthContext user settings
+    if (user?.telegramSettings) {
+      applySettings(user.telegramSettings);
+    }
+
+    // Fetch fresh settings from backend to ensure up-to-date values
+    telegramApi
+      .getSettings()
+      .then((resSettings) => {
+        if (resSettings && isSubscribed) {
+          applySettings(resSettings);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isOpen]);
 
   const handleSave = async (e) => {
     e?.preventDefault();
@@ -77,22 +93,37 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
       const payload = {
         enabled,
         chatId: chatId.trim(),
-        botToken: botToken.trim(),
         notifyOnCreated,
         notifyOnAssigned,
         notifyOnStatusChange,
         notifyOnReminders,
       };
 
+      if (clearCustomToken) {
+        payload.clearBotToken = true;
+      } else if (botToken.trim().length > 0) {
+        payload.botToken = botToken.trim();
+      }
+
       const updatedSettings = await telegramApi.updateSettings(payload);
 
       // Update auth context so other components immediately know the new state
       if (updateUser) {
         updateUser({
-          ...user,
           telegramSettings: updatedSettings,
         });
       }
+
+      // Synchronize modal state to saved settings
+      setEnabled(Boolean(updatedSettings?.enabled));
+      setChatId(updatedSettings?.chatId || '');
+      setBotTokenConfigured(Boolean(updatedSettings?.botTokenConfigured));
+      setNotifyOnCreated(updatedSettings?.notifyOnCreated !== false);
+      setNotifyOnAssigned(updatedSettings?.notifyOnAssigned !== false);
+      setNotifyOnStatusChange(updatedSettings?.notifyOnStatusChange !== false);
+      setNotifyOnReminders(updatedSettings?.notifyOnReminders !== false);
+      setBotToken('');
+      setClearCustomToken(false);
 
       setStatusMessage({
         type: 'success',
@@ -125,10 +156,14 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
     setStatusMessage(null);
 
     try {
-      await telegramApi.testNotification({
-        botToken: botToken.trim() || undefined,
+      const testPayload = {
         chatId: chatId.trim(),
-      });
+      };
+      if (botToken.trim().length > 0) {
+        testPayload.botToken = botToken.trim();
+      }
+
+      await telegramApi.testNotification(testPayload);
 
       setStatusMessage({
         type: 'success',
@@ -316,47 +351,106 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
 
           {/* Optional Bot Token Field */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              {t('telegramBotTokenLabel')}
-            </label>
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {t('telegramBotTokenLabel')}
+              </label>
+
+              {/* Status indicator and clear button */}
+              {botTokenConfigured && !clearCustomToken && (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <Key className="w-3 h-3" />
+                    <span>{t('telegramCustomTokenActive')}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setClearCustomToken(true)}
+                    className="text-[11px] text-red-500 hover:text-red-600 dark:text-red-400 hover:underline flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>{t('telegramRemoveCustomToken')}</span>
+                  </button>
+                </div>
+              )}
+
+              {clearCustomToken && (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{t('telegramCustomTokenMarkedForRemoval')}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setClearCustomToken(false)}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>{t('telegramUndoRemoval')}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="relative">
               <input
                 type="password"
                 dir="ltr"
                 value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
-                placeholder={t('telegramBotTokenPlaceholder')}
+                onChange={(e) => {
+                  setBotToken(e.target.value);
+                  if (clearCustomToken) setClearCustomToken(false);
+                }}
+                placeholder={
+                  botTokenConfigured && !clearCustomToken
+                    ? t('telegramBotTokenConfiguredPlaceholder')
+                    : t('telegramBotTokenPlaceholder')
+                }
                 className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-mono"
               />
             </div>
             <div className="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60">
               {lang === 'fa' ? (
                 <>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">راهنما:</span> اگر توکن وارد نکنید، از ربات پیش‌فرض تسکرا استفاده می‌شود. کافیست ابتدا به آیدی{' '}
-                  <a
-                    href="https://t.me/Taskeraaa_Bot"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
-                  >
-                    @Taskeraaa_Bot
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>{' '}
-                  بروید و یک‌بار دکمه <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> را بزنید.
+                  <span className="font-bold text-slate-700 dark:text-slate-300">راهنما:</span>{' '}
+                  {botTokenConfigured && !clearCustomToken
+                    ? 'توکن اختصاصی شما ذخیره است. در صورت خالی گذاشتن این کادر، توکن قبلی حفظ می‌شود. اگر می‌خواهید از ربات پیش‌فرض تسکرا استفاده کنید، روی «حذف توکن اختصاصی» کلیک کنید.'
+                    : (
+                      <>
+                        اگر توکن وارد نکنید، از ربات پیش‌فرض تسکرا استفاده می‌شود. کافیست ابتدا به آیدی{' '}
+                        <a
+                          href="https://t.me/Taskeraaa_Bot"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                        >
+                          @Taskeraaa_Bot
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>{' '}
+                        بروید و یک‌بار دکمه <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> را بزنید.
+                      </>
+                    )}
                 </>
               ) : (
                 <>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Help:</span> If you don't enter a token, Taskera's default bot will be used. Make sure to first open{' '}
-                  <a
-                    href="https://t.me/Taskeraaa_Bot"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
-                  >
-                    @Taskeraaa_Bot
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </a>{' '}
-                  and press <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> once.
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Help:</span>{' '}
+                  {botTokenConfigured && !clearCustomToken
+                    ? 'Your custom bot token is saved. Leaving this field blank keeps it intact. To switch to the default Taskera bot, click "Remove custom token".'
+                    : (
+                      <>
+                        If you don't enter a token, Taskera's default bot will be used. Make sure to first open{' '}
+                        <a
+                          href="https://t.me/Taskeraaa_Bot"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                        >
+                          @Taskeraaa_Bot
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>{' '}
+                        and press <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> once.
+                      </>
+                    )}
                 </>
               )}
             </div>

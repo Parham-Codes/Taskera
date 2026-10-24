@@ -1,4 +1,4 @@
-import User from '../models/user.js';
+import User, { sanitizeUser } from '../models/user.js';
 import { generateTokens, setAuthCookies, clearAuthCookies, verifyRefreshToken } from '../utils/token.js';
 import { successResponse, errorResponse } from '../utils/apiResponse.js';
 import { isValidTimezone } from '../utils/reminderDateUtils.js';
@@ -151,7 +151,7 @@ export const getMe = async (req, res, next) => {
     return successResponse(res, {
       message: 'Authenticated user fetched successfully',
       data: {
-        user: req.user,
+        user: sanitizeUser(req.user),
       },
     });
   } catch (error) {
