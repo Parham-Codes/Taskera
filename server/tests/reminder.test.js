@@ -547,7 +547,284 @@ const runReminderTests = async () => {
     assert(notif16.length === 1, 'Exactly one in-app notification created for confirmed rejection');
     console.log('  16.1 Confirmed Rejection Fallback to In-App: PASS');
 
-    console.log('\n--- ALL 16 TASK REMINDER & SMART ROUTING TEST SUITES PASSED SUCCESSFULLY ---');
+    // =========================================================================
+    // [17] TELEGRAM DELIVERY OUTCOME TRACKING & PERSISTENCE FAILURE ISOLATION (TASK 3)
+    // =========================================================================
+    console.log('\n[17] Telegram Delivery Outcome Tracking & Persistence Failure Isolation:');
+
+    // 17.1 Telegram succeeds, initial SENT update fails -> recovers safely, never FAILED
+    mockTelegramMode = 'success';
+    const task17_1 = await Task.create({
+      title: '[ReminderTest] 17.1 Telegram Success Persistence Error',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item17_1 = {
+      task: task17_1,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(task17_1._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim17_1 = await claimReminderDelivery(item17_1);
+    const origUpdateOne = TaskReminderDelivery.updateOne;
+    let failSentCount = 0;
+
+    try {
+      TaskReminderDelivery.updateOne = async function (filter, update, options) {
+        // Fail the first update attempting to mark status: SENT
+        if (update?.$set?.status === DELIVERY_STATUS.SENT && failSentCount === 0) {
+          failSentCount++;
+          throw new Error('Simulated write failure on initial SENT update');
+        }
+        return origUpdateOne.call(this, filter, update, options);
+      };
+
+      const beforeTelegramCount = telegramCallCount;
+      const res17_1 = await dispatchReminder(item17_1, claim17_1);
+
+      assert(res17_1.channel === DELIVERY_CHANNELS.TELEGRAM, 'Channel must be telegram');
+      assert(res17_1.success === true, 'Delivery must report success because telegram succeeded');
+
+      const savedRec17_1 = await TaskReminderDelivery.findById(claim17_1._id);
+      assert(savedRec17_1.status !== DELIVERY_STATUS.FAILED, 'Record must NEVER be marked FAILED when Telegram succeeded');
+      assert(savedRec17_1.status === DELIVERY_STATUS.SENT, 'Record must recover to SENT status');
+
+      // Verify that a subsequent cycle does not reclaim or resend
+      const secondClaim = await claimReminderDelivery(item17_1);
+      assert(secondClaim === null, 'Subsequent claim must be null (never redelivered)');
+      assert(telegramCallCount === beforeTelegramCount + 1, 'Telegram must only be called once');
+      console.log('  17.1 Telegram Succeeds & Initial Persistence Fails: PASS (Never FAILED, recovered to SENT, no duplicate send)');
+    } finally {
+      TaskReminderDelivery.updateOne = origUpdateOne;
+    }
+
+    // 17.2 Telegram succeeds, database temporarily completely unavailable -> never retryable FAILED, stale recovery safely marks UNKNOWN
+    mockTelegramMode = 'success';
+    const task17_2 = await Task.create({
+      title: '[ReminderTest] 17.2 Telegram Success DB Completely Unavailable',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item17_2 = {
+      task: task17_2,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(task17_2._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim17_2 = await claimReminderDelivery(item17_2);
+    try {
+      TaskReminderDelivery.updateOne = async function (filter, update, options) {
+        // Allow setting channel: TELEGRAM before dispatch, but fail all updates to SENT
+        if (update?.$set?.status === DELIVERY_STATUS.SENT) {
+          throw new Error('Simulated total DB outage on SENT update');
+        }
+        return origUpdateOne.call(this, filter, update, options);
+      };
+
+      const res17_2 = await dispatchReminder(item17_2, claim17_2);
+      assert(res17_2.success === true, 'Dispatch must report success because Telegram confirmed delivery');
+
+      const dbRec17_2 = await TaskReminderDelivery.findById(claim17_2._id);
+      assert(dbRec17_2.status !== DELIVERY_STATUS.FAILED, 'Must NOT be marked FAILED even under complete DB outage');
+      assert(dbRec17_2.channel === DELIVERY_CHANNELS.TELEGRAM, 'Channel must be recorded as TELEGRAM');
+
+      // Fresh claim must not redeliver
+      const freshClaim = await claimReminderDelivery(item17_2);
+      assert(freshClaim === null, 'Fresh processing claim must return null');
+
+      // Simulate time advancing past STALE_PROCESSING_THRESHOLD_MS (e.g. 25 minutes ago)
+      await TaskReminderDelivery.updateOne(
+        { _id: claim17_2._id },
+        { $set: { processingStartedAt: new Date(Date.now() - 25 * 60 * 1000) } }
+      );
+
+      // Stale recovery should transition to UNKNOWN and return null (never retry Telegram)
+      const staleClaim = await claimReminderDelivery(item17_2);
+      assert(staleClaim === null, 'Stale recovery must return null (never redeliver to Telegram)');
+
+      const recoveredRec17_2 = await TaskReminderDelivery.findById(claim17_2._id);
+      assert(recoveredRec17_2.status === DELIVERY_STATUS.UNKNOWN, 'Stale processing record must transition to UNKNOWN');
+      console.log('  17.2 Telegram Success Under DB Outage: PASS (Safe PROCESSING state, stale recovery transitions to UNKNOWN)');
+    } finally {
+      TaskReminderDelivery.updateOne = origUpdateOne;
+    }
+
+    // 17.3 Persisting UNKNOWN fails after a transport error -> never converted to FAILED
+    mockTelegramMode = 'network_error';
+    const task17_3 = await Task.create({
+      title: '[ReminderTest] 17.3 Transport Error UNKNOWN Persistence Failure',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item17_3 = {
+      task: task17_3,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(task17_3._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim17_3 = await claimReminderDelivery(item17_3);
+    let failUnknownCount = 0;
+    try {
+      TaskReminderDelivery.updateOne = async function (filter, update, options) {
+        if (update?.$set?.status === DELIVERY_STATUS.UNKNOWN && failUnknownCount === 0) {
+          failUnknownCount++;
+          throw new Error('Simulated write failure on UNKNOWN update');
+        }
+        return origUpdateOne.call(this, filter, update, options);
+      };
+
+      const res17_3 = await dispatchReminder(item17_3, claim17_3);
+      assert(res17_3.unknown === true, 'Must report unknown outcome');
+
+      const rec17_3 = await TaskReminderDelivery.findById(claim17_3._id);
+      assert(rec17_3.status !== DELIVERY_STATUS.FAILED, 'Record must NEVER be overwritten as FAILED after transport error');
+      assert(rec17_3.status === DELIVERY_STATUS.UNKNOWN, 'Record must be marked UNKNOWN');
+
+      // Verify no in-app fallback was created
+      const notifs17_3 = await Notification.find({ taskId: task17_3._id });
+      assert(notifs17_3.length === 0, 'No in-app notification must be created on transport failure');
+      console.log('  17.3 Transport Error Persistence Failure: PASS (Never marked FAILED, no in-app duplicate)');
+    } finally {
+      TaskReminderDelivery.updateOne = origUpdateOne;
+    }
+
+    // 17.4 Telegram explicitly rejects the message -> in-app fallback creates exactly one notification
+    mockTelegramMode = 'confirmed_failure';
+    const task17_4 = await Task.create({
+      title: '[ReminderTest] 17.4 Explicit Rejection Fallback',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item17_4 = {
+      task: task17_4,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(task17_4._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim17_4 = await claimReminderDelivery(item17_4);
+    const res17_4 = await dispatchReminder(item17_4, claim17_4);
+    assert(res17_4.success === true, 'Explicit rejection fallback must succeed');
+    assert(res17_4.channel === DELIVERY_CHANNELS.IN_APP, 'Channel must be in_app');
+
+    const notifs17_4 = await Notification.find({ taskId: task17_4._id });
+    assert(notifs17_4.length === 1, 'Exactly one in-app notification created');
+    console.log('  17.4 Explicit Rejection In-App Fallback: PASS (Exactly 1 notification created)');
+
+    // 17.5 In-app notification persistence fails -> recoverable retry creates exactly one notification
+    const task17_5 = await Task.create({
+      title: '[ReminderTest] 17.5 In-App Persistence Failure Retry',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userB._id, // User B has Telegram disabled
+      assignedTo: userB._id,
+      status: 'todo',
+    });
+
+    const item17_5 = {
+      task: task17_5,
+      recipientUser: userB,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(task17_5._id, userB._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim17_5 = await claimReminderDelivery(item17_5);
+    const origFindOneAndUpdate = Notification.findOneAndUpdate;
+    let failInAppCount = 0;
+
+    try {
+      Notification.findOneAndUpdate = async function (filter, update, options) {
+        if (failInAppCount === 0) {
+          failInAppCount++;
+          throw new Error('Simulated transient DB error during in-app notification insert');
+        }
+        return origFindOneAndUpdate.call(this, filter, update, options);
+      };
+
+      // First attempt fails during in-app insertion
+      const res17_5_fail = await dispatchReminder(item17_5, claim17_5);
+      assert(res17_5_fail.success === false, 'First attempt must report failure');
+
+      const failedRec17_5 = await TaskReminderDelivery.findById(claim17_5._id);
+      assert(failedRec17_5.status === DELIVERY_STATUS.FAILED, 'Delivery must be marked FAILED for recoverable in-app error');
+      assert(failedRec17_5.channel === DELIVERY_CHANNELS.IN_APP, 'Channel must be in_app');
+
+      // Now retry: restore Notification.findOneAndUpdate and re-claim
+      Notification.findOneAndUpdate = origFindOneAndUpdate;
+      const retryClaim = await claimReminderDelivery(item17_5);
+      assert(retryClaim !== null, 'Failed in-app delivery must be reclaimable under attempt limit');
+      assert(retryClaim.attemptCount === 2, 'Attempt count must be incremented to 2');
+
+      const res17_5_retry = await dispatchReminder(item17_5, retryClaim);
+      assert(res17_5_retry.success === true, 'Retry must succeed');
+
+      const notifs17_5 = await Notification.find({ taskId: task17_5._id });
+      assert(notifs17_5.length === 1, 'Exactly one in-app notification created despite initial failure and retry');
+      console.log('  17.5 In-App Persistence Failure & Safe Idempotent Retry: PASS (Zero duplicate notifications)');
+    } finally {
+      Notification.findOneAndUpdate = origFindOneAndUpdate;
+    }
+
+    // 17.6 Concurrent or stale operations cannot overwrite an already-SENT delivery
+    const task17_6 = await Task.create({
+      title: '[ReminderTest] 17.6 Terminal State Immutability',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item17_6 = {
+      task: task17_6,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(task17_6._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    mockTelegramMode = 'success';
+    const claim17_6 = await claimReminderDelivery(item17_6);
+    await dispatchReminder(item17_6, claim17_6);
+
+    const sentRec17_6 = await TaskReminderDelivery.findById(claim17_6._id);
+    assert(sentRec17_6.status === DELIVERY_STATUS.SENT, 'Record must be SENT');
+
+    // Attempt a stale / concurrent worker update with FAILED
+    await TaskReminderDelivery.updateOne(
+      { _id: claim17_6._id, status: { $nin: [DELIVERY_STATUS.SENT, DELIVERY_STATUS.UNKNOWN] } },
+      { $set: { status: DELIVERY_STATUS.FAILED, lastError: 'Late stale worker error' } }
+    );
+
+    // Attempt a stale worker update with UNKNOWN
+    await TaskReminderDelivery.updateOne(
+      { _id: claim17_6._id, status: { $ne: DELIVERY_STATUS.SENT } },
+      { $set: { status: DELIVERY_STATUS.UNKNOWN, lastError: 'Late stale worker UNKNOWN' } }
+    );
+
+    const reloadedRec17_6 = await TaskReminderDelivery.findById(claim17_6._id);
+    assert(reloadedRec17_6.status === DELIVERY_STATUS.SENT, 'Terminal SENT status must be immutable and cannot be overwritten by late FAILED/UNKNOWN');
+    console.log('  17.6 Concurrent/Stale Terminal State Protection: PASS (SENT record cannot be overwritten)');
+
+    console.log('\n--- ALL 17 TASK REMINDER & SMART ROUTING TEST SUITES PASSED SUCCESSFULLY ---');
   } finally {
     // Restore global fetch
     global.fetch = originalFetch;

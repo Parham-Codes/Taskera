@@ -167,6 +167,11 @@ export const claimReminderDelivery = async (item) => {
 
       // Allow retry if failed or non-telegram stale processing under the max attempt threshold
       if ((isStale || isFailed) && existing.attemptCount < MAX_DELIVERY_ATTEMPTS) {
+        // Defensive guard: Telegram deliveries must never be automatically retried
+        if (existing.channel === DELIVERY_CHANNELS.TELEGRAM) {
+          return null;
+        }
+
         const claimed = await TaskReminderDelivery.findOneAndUpdate(
           {
             _id: existing._id,
@@ -193,23 +198,31 @@ export const claimReminderDelivery = async (item) => {
   }
 };
 
+export const TELEGRAM_DELIVERY_OUTCOME = {
+  NOT_ATTEMPTED: 'not_attempted',
+  CONFIRMED_SUCCESS: 'confirmed_success',
+  CONFIRMED_REJECTION: 'confirmed_rejection',
+  UNKNOWN: 'unknown',
+};
+
 /**
  * Dispatches the reminder with Telegram-first routing and In-App notification fallback.
  *
  * @param {Object} item
  * @param {TaskReminderDelivery} deliveryRecord
- * @returns {Promise<{ channel: string, success: boolean, unknown?: boolean }>}
+ * @returns {Promise<{ channel: string, success: boolean, unknown?: boolean, error?: string }>}
  */
 export const dispatchReminder = async (item, deliveryRecord) => {
   const { task, recipientUser, reminderStage, dueDateKey } = item;
   let deliveredChannel = null;
+  let telegramOutcome = TELEGRAM_DELIVERY_OUTCOME.NOT_ATTEMPTED;
 
   try {
     // 1. Evaluate Telegram delivery if recipient has it configured and enabled
     if (isTelegramConfigured(recipientUser)) {
-      // Record channel attempt in progress before dispatch
+      // Record channel attempt in progress before dispatch (never overwrite an already-sent record)
       await TaskReminderDelivery.updateOne(
-        { _id: deliveryRecord._id },
+        { _id: deliveryRecord._id, status: { $ne: DELIVERY_STATUS.SENT } },
         { $set: { channel: DELIVERY_CHANNELS.TELEGRAM } }
       );
       deliveryRecord.channel = DELIVERY_CHANNELS.TELEGRAM;
@@ -221,14 +234,22 @@ export const dispatchReminder = async (item, deliveryRecord) => {
         dueDateKey,
       });
 
+      // Track the external Telegram outcome immediately before performing any database writes
       if (telegramResult.success) {
+        telegramOutcome = TELEGRAM_DELIVERY_OUTCOME.CONFIRMED_SUCCESS;
         deliveredChannel = DELIVERY_CHANNELS.TELEGRAM;
       } else if (telegramResult.isUnknown) {
+        telegramOutcome = TELEGRAM_DELIVERY_OUTCOME.UNKNOWN;
+      } else {
+        telegramOutcome = TELEGRAM_DELIVERY_OUTCOME.CONFIRMED_REJECTION;
+      }
+
+      if (telegramOutcome === TELEGRAM_DELIVERY_OUTCOME.UNKNOWN) {
         // Network timeout / transport error: delivery outcome is ambiguous.
         // DO NOT resend and DO NOT fall back to in-app to prevent double delivery.
         const errorMsg = `Telegram delivery outcome unknown (transport error): ${telegramResult.reason}`;
         await TaskReminderDelivery.updateOne(
-          { _id: deliveryRecord._id },
+          { _id: deliveryRecord._id, status: { $nin: [DELIVERY_STATUS.SENT, DELIVERY_STATUS.UNKNOWN] } },
           {
             $set: {
               status: DELIVERY_STATUS.UNKNOWN,
@@ -250,7 +271,7 @@ export const dispatchReminder = async (item, deliveryRecord) => {
           success: false,
           unknown: true,
         };
-      } else {
+      } else if (telegramOutcome === TELEGRAM_DELIVERY_OUTCOME.CONFIRMED_REJECTION) {
         // Confirmed Telegram API rejection (e.g. Chat not found, bot blocked)
         console.warn(
           `[ReminderService] Telegram confirmed failure for task ${task._id} (${telegramResult.reason || 'unknown'}). Safely falling back to in-app notification.`
@@ -258,7 +279,7 @@ export const dispatchReminder = async (item, deliveryRecord) => {
       }
     }
 
-    // 2. In-App Notification Fallback (if Telegram was not configured, disabled, or confirmed failed)
+    // 2. In-App Notification Fallback (if Telegram was not configured, disabled, or confirmed rejected)
     if (!deliveredChannel) {
       const isDueToday = reminderStage === REMINDER_STAGES.DUE_TODAY;
       const title = isDueToday
@@ -299,10 +320,10 @@ export const dispatchReminder = async (item, deliveryRecord) => {
       deliveredChannel = DELIVERY_CHANNELS.IN_APP;
     }
 
-    // 3. Mark delivery as successfully completed
+    // 3. Mark delivery as successfully completed (conditional update so SENT cannot overwrite another terminal state)
     const completedAt = new Date();
     await TaskReminderDelivery.updateOne(
-      { _id: deliveryRecord._id },
+      { _id: deliveryRecord._id, status: { $ne: DELIVERY_STATUS.SENT } },
       {
         $set: {
           status: DELIVERY_STATUS.SENT,
@@ -322,20 +343,113 @@ export const dispatchReminder = async (item, deliveryRecord) => {
       success: true,
     };
   } catch (error) {
-    await TaskReminderDelivery.updateOne(
-      { _id: deliveryRecord._id },
-      {
-        $set: {
-          status: DELIVERY_STATUS.FAILED,
-          lastError: error.message,
-        },
+    // -------------------------------------------------------------------------
+    // CRITICAL ERROR HANDLER:
+    // Guard against marking potentially delivered Telegram reminders as FAILED!
+    // -------------------------------------------------------------------------
+
+    // A. Telegram Confirmed Success:
+    // The Telegram message was ALREADY confirmed sent by the Telegram API.
+    // We must NEVER mark it as FAILED or allow redelivery.
+    if (telegramOutcome === TELEGRAM_DELIVERY_OUTCOME.CONFIRMED_SUCCESS) {
+      console.error(
+        `[ReminderService] Telegram confirmed success for task ${task._id}, but persisting SENT failed:`,
+        error.message
+      );
+      try {
+        await TaskReminderDelivery.updateOne(
+          { _id: deliveryRecord._id, status: { $ne: DELIVERY_STATUS.SENT } },
+          {
+            $set: {
+              status: DELIVERY_STATUS.SENT,
+              channel: DELIVERY_CHANNELS.TELEGRAM,
+              sentAt: new Date(),
+              lastError: `Telegram delivered; status update recovered after initial error: ${error.message}`,
+            },
+          }
+        );
+        deliveryRecord.status = DELIVERY_STATUS.SENT;
+        deliveryRecord.channel = DELIVERY_CHANNELS.TELEGRAM;
+      } catch (retryDbErr) {
+        // If DB remains unavailable, do NOT execute further writes that could turn it into FAILED.
+        // The record remains in PROCESSING with channel: TELEGRAM.
+        // Scheduler recovery explicitly ensures channel: TELEGRAM transitions to UNKNOWN, preventing duplicate send.
+        console.error(
+          `[ReminderService] Database unavailable for task ${task._id}. Leaving record in safe non-retryable state:`,
+          retryDbErr.message
+        );
       }
-    );
-    deliveryRecord.status = DELIVERY_STATUS.FAILED;
-    deliveryRecord.lastError = error.message;
+
+      return {
+        channel: DELIVERY_CHANNELS.TELEGRAM,
+        success: true,
+        error: error.message,
+      };
+    }
+
+    // B. Telegram Outcome Unknown:
+    // Transport error / lost response. Telegram may have accepted the message.
+    // We must NEVER retry Telegram, NEVER create an in-app fallback, and NEVER mark FAILED.
+    if (telegramOutcome === TELEGRAM_DELIVERY_OUTCOME.UNKNOWN) {
+      console.error(
+        `[ReminderService] Telegram outcome unknown for task ${task._id}, and persistence failed:`,
+        error.message
+      );
+      try {
+        await TaskReminderDelivery.updateOne(
+          { _id: deliveryRecord._id, status: { $nin: [DELIVERY_STATUS.SENT, DELIVERY_STATUS.UNKNOWN] } },
+          {
+            $set: {
+              status: DELIVERY_STATUS.UNKNOWN,
+              channel: DELIVERY_CHANNELS.TELEGRAM,
+              lastError: `Telegram outcome unknown: ${error.message}`,
+            },
+          }
+        );
+        deliveryRecord.status = DELIVERY_STATUS.UNKNOWN;
+        deliveryRecord.channel = DELIVERY_CHANNELS.TELEGRAM;
+      } catch (dbErr) {
+        console.error(
+          `[ReminderService] Database unavailable while saving UNKNOWN state for task ${task._id}:`,
+          dbErr.message
+        );
+      }
+
+      return {
+        channel: DELIVERY_CHANNELS.TELEGRAM,
+        success: false,
+        unknown: true,
+        error: error.message,
+      };
+    }
+
+    // C. Telegram Confirmed Rejection or Not Attempted:
+    // Telegram was NOT sent. Failure occurred during in-app creation or persistence.
+    // Retrying is safe and idempotent via reminderDeliveryId anchor.
+    // Conditionally update so an already-terminal SENT or UNKNOWN state is never overwritten.
+    try {
+      await TaskReminderDelivery.updateOne(
+        { _id: deliveryRecord._id, status: { $nin: [DELIVERY_STATUS.SENT, DELIVERY_STATUS.UNKNOWN] } },
+        {
+          $set: {
+            status: DELIVERY_STATUS.FAILED,
+            channel: deliveredChannel || DELIVERY_CHANNELS.IN_APP,
+            lastError: error.message,
+          },
+        }
+      );
+      deliveryRecord.status = DELIVERY_STATUS.FAILED;
+      deliveryRecord.channel = deliveredChannel || DELIVERY_CHANNELS.IN_APP;
+      deliveryRecord.lastError = error.message;
+    } catch (dbErr) {
+      console.error(
+        `[ReminderService] Failed to persist FAILED status for task ${task._id}:`,
+        dbErr.message
+      );
+    }
 
     return {
-      channel: DELIVERY_CHANNELS.NONE,
+      channel: deliveredChannel || DELIVERY_CHANNELS.NONE,
       success: false,
       error: error.message,
     };
