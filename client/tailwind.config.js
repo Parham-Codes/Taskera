@@ -27,8 +27,13 @@ export default {
         'glass-md': '0 8px 30px -4px rgba(0, 0, 0, 0.08)',
         'glass-glow': '0 0 35px -5px rgba(79, 90, 228, 0.25)',
       },
-      backdropBlur: {
-        xs: '2px',
+      borderRadius: {
+        'sm': '0.25rem',
+        'md': '0.375rem',
+        'lg': '0.5rem',
+        'xl': '0.625rem',
+        '2xl': '0.75rem',
+        '3xl': '0.875rem',
       },
       fontFamily: {
         sans: ['Vazirmatn', 'Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],

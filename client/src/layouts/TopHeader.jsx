@@ -17,10 +17,15 @@ import {
   Calendar,
   MoreHorizontal,
   AlarmClock,
+  Zap,
+  Sun,
+  Moon,
+  Languages,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWorkspace } from '../context/WorkspaceContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { useNotifications } from '../context/NotificationContext.jsx';
 import { TelegramIcon } from '../components/ui/TelegramIcon.jsx';
 
@@ -41,13 +46,13 @@ export const TopHeader = ({
 }) => {
   const { user } = useAuth();
   const { activeWorkspace } = useWorkspace();
-  const { t, lang } = useLanguage();
+  const { t, lang, toggleLang } = useLanguage();
+  const { theme, toggleTheme, animating } = useTheme();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
   const [priorityMenuOpen, setPriorityMenuOpen] = useState(false);
   const [notificationsMenuOpen, setNotificationsMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const priorityMenuRef = useRef(null);
   const notificationsMenuRef = useRef(null);
@@ -65,8 +70,22 @@ export const TopHeader = ({
         setMoreMenuOpen(false);
       }
     };
+
+    const handleScroll = () => {
+      setPriorityMenuOpen(false);
+      setNotificationsMenuOpen(false);
+      setMoreMenuOpen(false);
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+    };
   }, []);
 
   const priorityOptions = [
@@ -121,27 +140,28 @@ export const TopHeader = ({
 
       {/* Right: Search, Actions, View Switcher, and User Controls */}
       <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0">
-        {/* Desktop Search / Command Palette Launcher (>= 1280px) */}
+        {/* Desktop Quick Access Launcher (>= sm) */}
         <button
           onClick={onOpenCommandPalette}
           type="button"
-          className="relative hidden xl:flex items-center justify-between w-52 xl:w-60 ps-8 pe-2.5 py-1.5 text-xs rounded-xl glass-input text-slate-400 hover:border-brand-500/40 transition-all text-start group shadow-2xs"
+          className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs rounded-xl glass-input text-slate-600 dark:text-slate-300 hover:border-amber-500/40 hover:text-amber-600 dark:hover:text-amber-400 transition-all text-start group shadow-2xs font-semibold"
+          title={lang === 'fa' ? 'دسترسی سریع (عملیات‌ها و فیلترها)' : 'Quick Access (Actions & Filters)'}
         >
-          <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-brand-500 transition-colors absolute start-2.5 top-2.5 pointer-events-none" />
-          <span className="truncate">{t('search')}...</span>
+          <Zap className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+          <span>{lang === 'fa' ? 'دسترسی سریع' : 'Quick Access'}</span>
           <span className="px-1.5 py-0.5 text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shrink-0">
             Ctrl K
           </span>
         </button>
 
-        {/* Compact Search Button (< 1280px: Mobile, Tablet & Compact Desktop) */}
+        {/* Compact Quick Access Button (< sm) */}
         <button
           onClick={onOpenCommandPalette}
-          className="xl:hidden p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs"
-          title={t('commandPalette')}
-          aria-label={t('commandPalette')}
+          className="sm:hidden p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-amber-500 hover:border-amber-500/40 transition-all shadow-2xs"
+          title={lang === 'fa' ? 'دسترسی سریع' : 'Quick Access'}
+          aria-label="Quick Access"
         >
-          <Search className="w-4 h-4" />
+          <Zap className="w-4 h-4 text-amber-500" />
         </button>
 
         {/* Desktop Direct Quick Tool Buttons (Desktop xl+ >= 1280px) */}
@@ -174,23 +194,23 @@ export const TopHeader = ({
           <button
             onClick={() => onOpenImportExport('import')}
             className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs group"
-            title={lang === 'fa' ? 'ورود هوشمند با AI و خروجی اکسل' : 'AI Import & Excel Export'}
+            title={lang === 'fa' ? 'ورود و خروجی فایل‌های اکسل (Excel)، CSV و ساخت هوشمند با AI' : 'Import/Export Excel, CSV and AI Generation'}
           >
             <Sparkles className="w-4 h-4 text-brand-500 group-hover:rotate-12 transition-transform" />
             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-              {lang === 'fa' ? 'ورود هوشمند AI' : 'AI Import'}
+              {lang === 'fa' ? 'اکسل و AI' : 'Excel & AI'}
             </span>
           </button>
         )}
 
-        {/* More Actions Popover for Mobile & Tablet (< xl) */}
-        <div className="relative xl:hidden" ref={moreMenuRef}>
+        {/* Options & Preferences Menu Popover (available on all screen sizes) */}
+        <div className="relative" ref={moreMenuRef}>
           <button
             onClick={() => setMoreMenuOpen(!moreMenuOpen)}
             className={`p-2 rounded-xl glass-panel text-slate-600 dark:text-slate-300 hover:text-brand-500 dark:hover:text-brand-400 hover:border-brand-500/40 transition-all shadow-2xs ${
               moreMenuOpen ? 'border-brand-500/50 text-brand-500 bg-brand-500/10' : ''
             }`}
-            title={lang === 'fa' ? 'ابزارها و امکانات بیشتر' : 'More Options'}
+            title={lang === 'fa' ? 'تنظیمات و ابزارها' : 'Options & Tools'}
             aria-label="More options"
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -198,11 +218,52 @@ export const TopHeader = ({
 
           {moreMenuOpen && (
             <div className="fixed sm:absolute top-16 sm:top-full inset-x-3 sm:inset-x-auto sm:end-0 mt-2 max-w-sm sm:w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2.5 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-2.5">
+              {/* Theme & Language Section */}
               <div className="px-1 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                {lang === 'fa' ? 'ابزارها و نمای تسک‌ها' : 'Tools & Views'}
+                {lang === 'fa' ? 'تنظیمات ظاهر و زبان' : 'Appearance & Language'}
               </div>
 
-              {/* View Switcher inside More Menu for mobile & tablet */}
+              <div className="space-y-1 p-1 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800">
+                {/* Theme Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleTheme();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-colors text-start"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {theme === 'dark' ? (
+                      <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-slate-600 dark:text-slate-300 shrink-0" />
+                    )}
+                    <span>{theme === 'dark' ? (lang === 'fa' ? 'حالت روشن (Light)' : 'Light Mode') : (lang === 'fa' ? 'حالت تاریک (Dark)' : 'Dark Mode')}</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-slate-500">
+                    {theme === 'dark' ? (lang === 'fa' ? 'تاریک' : 'Dark') : (lang === 'fa' ? 'روشن' : 'Light')}
+                  </span>
+                </button>
+
+                {/* Language Switch */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleLang();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-colors text-start"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Languages className="w-4 h-4 text-brand-500 shrink-0" />
+                    <span>{lang === 'fa' ? 'تغییر زبان به انگلیسی (English)' : 'Switch to Persian (فارسی)'}</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                    {lang === 'fa' ? 'فارسی' : 'EN'}
+                  </span>
+                </button>
+              </div>
+
+              {/* View Switcher inside Menu */}
               <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/60 space-y-2">
                 <div className="flex items-center justify-between px-0.5">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
@@ -261,6 +322,7 @@ export const TopHeader = ({
                 </div>
               </div>
 
+              {/* Tools list */}
               <div className="space-y-1 pt-1 border-t border-slate-200/60 dark:border-slate-800">
                 {onOpenImportExport && (
                   <button
@@ -271,7 +333,7 @@ export const TopHeader = ({
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-start"
                   >
                     <Sparkles className="w-4 h-4 text-brand-500 shrink-0" />
-                    <span>{lang === 'fa' ? 'ورود هوشمند با AI / خروجی' : 'AI Import & Export'}</span>
+                    <span>{lang === 'fa' ? 'ورود و خروجی اکسل / هوش مصنوعی' : 'Excel & AI Import/Export'}</span>
                   </button>
                 )}
 
@@ -526,29 +588,6 @@ export const TopHeader = ({
           <span className="hidden sm:inline">{t('newTask')}</span>
         </button>
       </div>
-
-      {/* Mobile Search Overlay Bar */}
-      {mobileSearchOpen && (
-        <div className="absolute inset-x-0 top-full p-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-lg md:hidden animate-in fade-in duration-150">
-          <div className="relative">
-            <input
-              type="text"
-              autoFocus
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t('search')}
-              className="w-full ps-8 pe-8 py-2 text-xs rounded-xl glass-input focus:outline-none"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute start-2.5 top-2.5 pointer-events-none" />
-            <button
-              onClick={() => setMobileSearchOpen(false)}
-              className="absolute end-2 top-2 p-0.5 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

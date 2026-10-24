@@ -12,9 +12,6 @@ import {
   AlertTriangle,
   UserCheck,
   Users,
-  Sun,
-  Moon,
-  Languages,
   LogOut,
   X,
   Bell,
@@ -26,10 +23,8 @@ import { useCategories } from '../context/CategoryContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWorkspace } from '../context/WorkspaceContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import { useTheme } from '../context/ThemeContext.jsx';
 import { useNotifications } from '../context/NotificationContext.jsx';
 import { Modal } from '../components/ui/index.js';
-import { TelegramIcon } from '../components/ui/TelegramIcon.jsx';
 
 export const Sidebar = ({
   isOpen,
@@ -45,8 +40,7 @@ export const Sidebar = ({
 }) => {
   const { user, logout } = useAuth();
   const { activeWorkspace, workspaces, switchWorkspace, members } = useWorkspace();
-  const { t, lang, toggleLang } = useLanguage();
-  const { theme, toggleTheme, animating } = useTheme();
+  const { t, lang } = useLanguage();
   const { unreadCount } = useNotifications();
   const { categories = [] } = useCategories();
 
@@ -309,6 +303,7 @@ export const Sidebar = ({
             <div className="space-y-1">
               {categories.map((cat) => {
                 const isActive = activeFilter === `cat:${cat._id}`;
+                const catColor = cat.color || '#4F5AE4';
                 return (
                   <button
                     key={cat._id}
@@ -316,19 +311,34 @@ export const Sidebar = ({
                       onFilterChange(`cat:${cat._id}`);
                       onClose?.();
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                    style={{
+                      borderColor: isActive ? catColor : 'transparent',
+                      backgroundColor: isActive ? `${catColor}20` : undefined,
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
                       isActive
-                        ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/20'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
+                        ? 'shadow-xs font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2 truncate">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
-                        style={{ backgroundColor: cat.color || '#4F5AE4' }}
+                        className="w-3 h-3 rounded-md shrink-0 shadow-2xs border border-white/40 dark:border-slate-800/40"
+                        style={{ backgroundColor: catColor }}
                       />
-                      <span className="truncate">{cat.name}</span>
+                      <span
+                        className="truncate"
+                        style={{ color: isActive ? catColor : undefined }}
+                      >
+                        {cat.name}
+                      </span>
                     </div>
+                    {isActive && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: catColor }}
+                      />
+                    )}
                   </button>
                 );
               })}
@@ -390,66 +400,28 @@ export const Sidebar = ({
           )}
         </div>
 
-        {/* Bottom Section: User Profile & Quick Controls */}
-        <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2 shrink-0">
-          {/* Quick Controls: Theme & Language */}
-          <div className="flex items-center justify-between px-1">
-            <button
-              onClick={toggleLang}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            >
-              <Languages className="w-3.5 h-3.5 text-brand-500" />
-              <span>{lang === 'fa' ? 'EN' : 'فا'}</span>
-            </button>
-
-            {onOpenTelegramSettings && (
-              <button
-                onClick={onOpenTelegramSettings}
-                className={`relative p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-500 hover:text-blue-500 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all ${
-                  user?.telegramSettings?.enabled ? 'text-blue-500 dark:text-blue-400' : ''
-                }`}
-                title={t('telegramSettingsTitle')}
-              >
-                <TelegramIcon className="w-4 h-4" />
-                {user?.telegramSettings?.enabled && (
-                  <span className="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-white dark:ring-slate-900" />
-                )}
-              </button>
-            )}
-
-            <button
-              onClick={toggleTheme}
-              className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all ${
-                animating ? 'animate-theme-toggle' : ''
-              }`}
-              title="Toggle theme"
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-600" />
-              )}
-            </button>
-
-            <button
-              onClick={() => setLogoutConfirmOpen(true)}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-              title={t('logout')}
-            >
-              <LogOut className={`w-4 h-4 transition-transform ${lang === 'fa' ? '-scale-x-100' : ''}`} />
-            </button>
-          </div>
-
+        {/* Bottom Section: User Profile & Full-Width Logout */}
+        <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2.5 shrink-0">
           {/* User Info Card */}
-          <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {user?.name ? user.name[0].toUpperCase() : 'U'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate leading-tight">{user?.name}</p>
+              <p className="text-xs font-bold truncate leading-tight text-slate-800 dark:text-slate-100">{user?.name}</p>
               <p className="text-[10px] text-slate-400 truncate leading-tight">{user?.email}</p>
             </div>
           </div>
+
+          {/* Full-Width Logout Button */}
+          <button
+            onClick={() => setLogoutConfirmOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100/80 dark:bg-red-950/30 dark:hover:bg-red-950/50 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-900/40 text-xs font-bold transition-all shadow-2xs"
+            title={t('logout')}
+          >
+            <LogOut className={`w-3.5 h-3.5 transition-transform ${lang === 'fa' ? '-scale-x-100' : ''}`} />
+            <span>{t('logout')}</span>
+          </button>
         </div>
       </aside>
 
