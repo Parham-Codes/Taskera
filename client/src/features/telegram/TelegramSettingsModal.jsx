@@ -241,14 +241,76 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
 
           {/* Quick Setup Guide Collapse */}
           {showGuide && (
-            <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/60 text-xs space-y-1.5 text-slate-700 dark:text-slate-300 transition-all">
+            <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/60 text-xs space-y-2 text-slate-700 dark:text-slate-300 transition-all">
               <p className="font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{t('telegramSetupGuideTitle')}</span>
               </p>
-              <p className="text-[11px] leading-relaxed">{t('telegramStep1')}</p>
-              <p className="text-[11px] leading-relaxed">{t('telegramStep2')}</p>
-              <p className="text-[11px] leading-relaxed">{t('telegramStep3')}</p>
+              <div className="space-y-1.5 text-[11px] leading-relaxed">
+                <p>
+                  {lang === 'fa' ? (
+                    <>
+                      ۱. به ربات{' '}
+                      <a
+                        href="https://t.me/userinfobot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        @userinfobot
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>{' '}
+                      در تلگرام پیام <code className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 text-[10px]">/start</code> بفرستید تا Chat ID عددی خود را بگیرید.
+                    </>
+                  ) : (
+                    <>
+                      1. Send <code className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 text-[10px]">/start</code> to{' '}
+                      <a
+                        href="https://t.me/userinfobot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        @userinfobot
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>{' '}
+                      in Telegram to obtain your numeric Chat ID.
+                    </>
+                  )}
+                </p>
+                <p>
+                  {lang === 'fa' ? (
+                    <>
+                      ۲. اگر توکن وارد نمی‌کنید، به ربات پیش‌فرض{' '}
+                      <a
+                        href="https://t.me/Taskeraaa_Bot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        @Taskeraaa_Bot
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>{' '}
+                      رفته و یک‌بار دکمه <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> را بزنید تا اجازه ارسال پیام به شما را داشته باشد.
+                    </>
+                  ) : (
+                    <>
+                      2. If not entering a custom token, open the default bot{' '}
+                      <a
+                        href="https://t.me/Taskeraaa_Bot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        @Taskeraaa_Bot
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>{' '}
+                      and press <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> so it has permission to message you.
+                    </>
+                  )}
+                </p>
+                <p>{t('telegramStep3')}</p>
+              </div>
             </div>
           )}
 
@@ -267,9 +329,37 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
                 className="w-full px-3.5 py-2.5 rounded-xl glass-input text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors font-mono"
               />
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
-              {t('telegramBotTokenHelp')}
-            </p>
+            <div className="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60">
+              {lang === 'fa' ? (
+                <>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">راهنما:</span> اگر توکن وارد نکنید، از ربات پیش‌فرض تسکرا استفاده می‌شود. کافیست ابتدا به آیدی{' '}
+                  <a
+                    href="https://t.me/Taskeraaa_Bot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    @Taskeraaa_Bot
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>{' '}
+                  بروید و یک‌بار دکمه <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> را بزنید.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Help:</span> If you don't enter a token, Taskera's default bot will be used. Make sure to first open{' '}
+                  <a
+                    href="https://t.me/Taskeraaa_Bot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    @Taskeraaa_Bot
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>{' '}
+                  and press <span className="font-semibold text-slate-800 dark:text-slate-200">Start</span> once.
+                </>
+              )}
+            </div>
           </div>
 
           {/* Event Checkboxes */}

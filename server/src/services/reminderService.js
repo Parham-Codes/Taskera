@@ -135,15 +135,37 @@ export const claimReminderDelivery = async (item) => {
         return null;
       }
 
+      // If the outcome is already marked UNKNOWN, do NOT blindly redeliver
+      if (existing.status === DELIVERY_STATUS.UNKNOWN) {
+        return null;
+      }
+
       // Check if the record is currently processing and still fresh
       const isStale =
         existing.status === DELIVERY_STATUS.PROCESSING &&
         Date.now() - new Date(existing.processingStartedAt).getTime() >
           STALE_PROCESSING_THRESHOLD_MS;
 
+      // If a stale processing record crashed during Telegram dispatch, its outcome is unknown
+      if (isStale && existing.channel === DELIVERY_CHANNELS.TELEGRAM) {
+        await TaskReminderDelivery.updateOne(
+          { _id: existing._id, status: DELIVERY_STATUS.PROCESSING },
+          {
+            $set: {
+              status: DELIVERY_STATUS.UNKNOWN,
+              lastError: 'Server stalled or crashed during Telegram dispatch; outcome unknown.',
+            },
+          }
+        );
+        console.warn(
+          `[ReminderService] Stale processing record for task ${task._id} was during Telegram dispatch. Transitioned to UNKNOWN to prevent duplicate delivery.`
+        );
+        return null;
+      }
+
       const isFailed = existing.status === DELIVERY_STATUS.FAILED;
 
-      // Allow retry if failed or stale and under the max attempt threshold
+      // Allow retry if failed or non-telegram stale processing under the max attempt threshold
       if ((isStale || isFailed) && existing.attemptCount < MAX_DELIVERY_ATTEMPTS) {
         const claimed = await TaskReminderDelivery.findOneAndUpdate(
           {
@@ -176,7 +198,7 @@ export const claimReminderDelivery = async (item) => {
  *
  * @param {Object} item
  * @param {TaskReminderDelivery} deliveryRecord
- * @returns {Promise<{ channel: string, success: boolean }>}
+ * @returns {Promise<{ channel: string, success: boolean, unknown?: boolean }>}
  */
 export const dispatchReminder = async (item, deliveryRecord) => {
   const { task, recipientUser, reminderStage, dueDateKey } = item;
@@ -185,6 +207,13 @@ export const dispatchReminder = async (item, deliveryRecord) => {
   try {
     // 1. Evaluate Telegram delivery if recipient has it configured and enabled
     if (isTelegramConfigured(recipientUser)) {
+      // Record channel attempt in progress before dispatch
+      await TaskReminderDelivery.updateOne(
+        { _id: deliveryRecord._id },
+        { $set: { channel: DELIVERY_CHANNELS.TELEGRAM } }
+      );
+      deliveryRecord.channel = DELIVERY_CHANNELS.TELEGRAM;
+
       const telegramResult = await sendTaskReminderTelegram({
         recipientUser,
         task,
@@ -194,14 +223,42 @@ export const dispatchReminder = async (item, deliveryRecord) => {
 
       if (telegramResult.success) {
         deliveredChannel = DELIVERY_CHANNELS.TELEGRAM;
-      } else {
+      } else if (telegramResult.isUnknown) {
+        // Network timeout / transport error: delivery outcome is ambiguous.
+        // DO NOT resend and DO NOT fall back to in-app to prevent double delivery.
+        const errorMsg = `Telegram delivery outcome unknown (transport error): ${telegramResult.reason}`;
+        await TaskReminderDelivery.updateOne(
+          { _id: deliveryRecord._id },
+          {
+            $set: {
+              status: DELIVERY_STATUS.UNKNOWN,
+              channel: DELIVERY_CHANNELS.TELEGRAM,
+              lastError: errorMsg,
+            },
+          }
+        );
+        deliveryRecord.status = DELIVERY_STATUS.UNKNOWN;
+        deliveryRecord.channel = DELIVERY_CHANNELS.TELEGRAM;
+        deliveryRecord.lastError = errorMsg;
+
         console.warn(
-          `[ReminderService] Telegram attempt failed for task ${task._id} (${telegramResult.reason || 'unknown'}). Falling back to in-app notification.`
+          `[ReminderService] Telegram delivery for task ${task._id} produced an UNKNOWN outcome: ${telegramResult.reason}. Marked as UNKNOWN to prevent duplicate delivery.`
+        );
+
+        return {
+          channel: DELIVERY_CHANNELS.TELEGRAM,
+          success: false,
+          unknown: true,
+        };
+      } else {
+        // Confirmed Telegram API rejection (e.g. Chat not found, bot blocked)
+        console.warn(
+          `[ReminderService] Telegram confirmed failure for task ${task._id} (${telegramResult.reason || 'unknown'}). Safely falling back to in-app notification.`
         );
       }
     }
 
-    // 2. In-App Notification Fallback (if Telegram was not configured, disabled, or failed)
+    // 2. In-App Notification Fallback (if Telegram was not configured, disabled, or confirmed failed)
     if (!deliveredChannel) {
       const isDueToday = reminderStage === REMINDER_STAGES.DUE_TODAY;
       const title = isDueToday
@@ -211,36 +268,71 @@ export const dispatchReminder = async (item, deliveryRecord) => {
         ? `تسک «${task.title}» امروز باید انجام شود.`
         : `تسک «${task.title}» فردا باید انجام شود.`;
 
-      await Notification.create({
-        recipient: recipientUser._id,
-        sender: null,
-        type: NOTIFICATION_TYPES.TASK_REMINDER,
-        reminderStage,
-        title,
-        message,
-        taskId: task._id,
-        organizationId: task.organizationId || null,
-        isRead: false,
-      });
+      // Idempotent insertion using reminderDeliveryId as the unique anchor
+      try {
+        await Notification.findOneAndUpdate(
+          { reminderDeliveryId: deliveryRecord._id },
+          {
+            $setOnInsert: {
+              recipient: recipientUser._id,
+              sender: null,
+              type: NOTIFICATION_TYPES.TASK_REMINDER,
+              reminderStage,
+              title,
+              message,
+              taskId: task._id,
+              organizationId: task.organizationId || null,
+              isRead: false,
+              reminderDeliveryId: deliveryRecord._id,
+            },
+          },
+          { upsert: true, returnDocument: 'after' }
+        );
+      } catch (insertError) {
+        if (insertError.code === 11000) {
+          // Handled duplicate key error: concurrent worker or previous attempt already inserted it
+        } else {
+          throw insertError;
+        }
+      }
 
       deliveredChannel = DELIVERY_CHANNELS.IN_APP;
     }
 
     // 3. Mark delivery as successfully completed
+    const completedAt = new Date();
+    await TaskReminderDelivery.updateOne(
+      { _id: deliveryRecord._id },
+      {
+        $set: {
+          status: DELIVERY_STATUS.SENT,
+          channel: deliveredChannel,
+          sentAt: completedAt,
+          lastError: null,
+        },
+      }
+    );
     deliveryRecord.status = DELIVERY_STATUS.SENT;
     deliveryRecord.channel = deliveredChannel;
-    deliveryRecord.sentAt = new Date();
+    deliveryRecord.sentAt = completedAt;
     deliveryRecord.lastError = null;
-    await deliveryRecord.save();
 
     return {
       channel: deliveredChannel,
       success: true,
     };
   } catch (error) {
+    await TaskReminderDelivery.updateOne(
+      { _id: deliveryRecord._id },
+      {
+        $set: {
+          status: DELIVERY_STATUS.FAILED,
+          lastError: error.message,
+        },
+      }
+    );
     deliveryRecord.status = DELIVERY_STATUS.FAILED;
     deliveryRecord.lastError = error.message;
-    await deliveryRecord.save();
 
     return {
       channel: DELIVERY_CHANNELS.NONE,
@@ -255,7 +347,7 @@ export const dispatchReminder = async (item, deliveryRecord) => {
  * Bounded, idempotent, and error-isolated per task.
  *
  * @param {Date} [referenceDate=new Date()]
- * @returns {Promise<{ totalEligible: number, sentTelegram: number, sentInApp: number, skipped: number, failed: number }>}
+ * @returns {Promise<{ totalEligible: number, sentTelegram: number, sentInApp: number, skipped: number, unknown: number, failed: number }>}
  */
 export const runReminderCycle = async (referenceDate = new Date()) => {
   const stats = {
@@ -263,6 +355,7 @@ export const runReminderCycle = async (referenceDate = new Date()) => {
     sentTelegram: 0,
     sentInApp: 0,
     skipped: 0,
+    unknown: 0,
     failed: 0,
   };
 
@@ -284,6 +377,8 @@ export const runReminderCycle = async (referenceDate = new Date()) => {
         } else if (result.channel === DELIVERY_CHANNELS.IN_APP) {
           stats.sentInApp++;
         }
+      } else if (result.unknown) {
+        stats.unknown++;
       } else {
         stats.failed++;
       }

@@ -25,12 +25,12 @@ export const sendTelegramMessage = async ({ botToken, chatId, message }) => {
 
   if (!token) {
     console.warn('[TelegramService] Skipped sending: No bot token provided.');
-    return { success: false, reason: 'NO_BOT_TOKEN' };
+    return { success: false, reason: 'NO_BOT_TOKEN', isConfirmedFailure: true };
   }
 
   if (!targetChatId) {
     console.warn('[TelegramService] Skipped sending: No chat ID provided.');
-    return { success: false, reason: 'NO_CHAT_ID' };
+    return { success: false, reason: 'NO_CHAT_ID', isConfirmedFailure: true };
   }
 
   const endpoint = `https://api.telegram.org/bot${token}/sendMessage`;
@@ -51,13 +51,13 @@ export const sendTelegramMessage = async ({ botToken, chatId, message }) => {
 
     if (!data.ok) {
       console.error('[TelegramService] Telegram API error:', data.description);
-      return { success: false, reason: data.description };
+      return { success: false, reason: data.description, isConfirmedFailure: true };
     }
 
     return { success: true, result: data.result };
   } catch (error) {
     console.error('[TelegramService] Network/Transport exception:', error.message);
-    return { success: false, reason: error.message };
+    return { success: false, reason: error.message, isConfirmedFailure: false, isUnknown: true };
   }
 };
 
@@ -69,9 +69,9 @@ export const sendTelegramTestMessage = async ({ botToken, chatId, userName }) =>
     `🚀 <b>اتصال با موفقیت برقرار شد!</b>`,
     `سلام ${escapeHtml(userName || 'کاربر گرامی')} 👋`,
     ``,
-    `تنظیمات ربات تلگرام تسک‌منیجر شما با موفقیت ثبت شد. از این پس اعلان‌های مربوط به تسک‌های شما فوراً از این طریق برای شما ارسال خواهد شد.`,
+    `تنظیمات ربات تلگرام تسکرا شما با موفقیت ثبت شد. از این پس اعلان‌های مربوط به تسک‌های شما فوراً از این طریق برای شما ارسال خواهد شد.`,
     ``,
-    `📅 <i>زمان تست: ${new Date().toLocaleString('fa-IR')}</i>`,
+    `📅 زمان تست: ${new Date().toLocaleString('fa-IR')}`,
   ].join('\n');
 
   return sendTelegramMessage({ botToken, chatId, message });
@@ -154,7 +154,7 @@ export const notifyTaskEventOnTelegram = async ({
   }
 
   messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  messageLines.push(`⏰ <i>${new Date().toLocaleString('fa-IR')}</i>`);
+  messageLines.push(`⏰ ${new Date().toLocaleString('fa-IR')}`);
 
   const fullMessage = messageLines.filter(Boolean).join('\n');
 
@@ -204,6 +204,7 @@ export const sendTaskReminderTelegram = async ({
     return {
       success: false,
       skipped: true,
+      isConfirmedFailure: true,
       reason: 'TELEGRAM_NOT_CONFIGURED_OR_DISABLED',
     };
   }
@@ -234,7 +235,7 @@ export const sendTaskReminderTelegram = async ({
     `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
     `⚡ <b>اولویت:</b> ${priorityBadge}`,
     `📅 <b>تاریخ سررسید:</b> <code>${escapeHtml(dueDateKey)}</code>`,
-    `ℹ️ <i>${stageNotice}</i>`,
+    `ℹ️ ${stageNotice}`,
   ];
 
   if (task.description && task.description.trim()) {
@@ -246,7 +247,7 @@ export const sendTaskReminderTelegram = async ({
   }
 
   messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  messageLines.push(`⏱️ <i>ارسال خودکار توسط سیستم هوشمند Taskera</i>`);
+  messageLines.push(`⏱️ ارسال خودکار توسط سیستم هوشمند Taskera`);
 
   try {
     return await sendTelegramMessage({
@@ -255,7 +256,7 @@ export const sendTaskReminderTelegram = async ({
       message: messageLines.filter(Boolean).join('\n'),
     });
   } catch (error) {
-    return { success: false, reason: error.message };
+    return { success: false, reason: error.message, isConfirmedFailure: false, isUnknown: true };
   }
 };
 

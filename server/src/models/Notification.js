@@ -59,6 +59,11 @@ const notificationSchema = new mongoose.Schema(
       enum: ['day_before', 'due_today', null],
       default: null,
     },
+    reminderDeliveryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TaskReminderDelivery',
+      // Notice: No default value here to avoid populating on standard notifications
+    },
   },
   {
     timestamps: true,
@@ -67,6 +72,15 @@ const notificationSchema = new mongoose.Schema(
 
 // Compound index for lightning-fast notification retrieval and unread counts
 notificationSchema.index({ recipient: 1, isRead: 1, createdAt: -1 });
+
+// Unique partial index for reminder notifications to guarantee exactly-once in-app delivery
+notificationSchema.index(
+  { reminderDeliveryId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { reminderDeliveryId: { $type: 'objectId' } },
+  }
+);
 
 const Notification = mongoose.models.Notification || mongoose.model('Notification', notificationSchema);
 

@@ -50,22 +50,24 @@ const runReminderTests = async () => {
   const originalFetch = global.fetch;
   let telegramCallCount = 0;
   let lastTelegramPayload = null;
-  let mockTelegramSuccess = true;
+  let mockTelegramMode = 'success'; // 'success' | 'confirmed_failure' | 'network_error'
 
   global.fetch = async (url, options) => {
     if (typeof url === 'string' && url.includes('api.telegram.org')) {
       telegramCallCount++;
       lastTelegramPayload = options?.body ? JSON.parse(options.body) : null;
-      if (mockTelegramSuccess) {
+      if (mockTelegramMode === 'success') {
         return {
           ok: true,
           json: async () => ({ ok: true, result: { message_id: 999 } }),
         };
-      } else {
+      } else if (mockTelegramMode === 'confirmed_failure') {
         return {
           ok: false,
-          json: async () => ({ ok: false, description: 'Mock network timeout / chat not found' }),
+          json: async () => ({ ok: false, description: 'Bad Request: chat not found' }),
         };
+      } else if (mockTelegramMode === 'network_error') {
+        throw new Error('connect ETIMEDOUT 149.154.167.220:443');
       }
     }
     return originalFetch(url, options);
@@ -191,7 +193,7 @@ const runReminderTests = async () => {
     console.log('  2.1 Eligibility Filtering (completed, no dueDate, overdue skipped): PASS');
 
     console.log('\n[3] Telegram Delivery Routing (User A with Telegram Enabled):');
-    mockTelegramSuccess = true;
+    mockTelegramMode = 'success';
     telegramCallCount = 0;
 
     const cycleStats1 = await runReminderCycle(refDate);
@@ -230,7 +232,7 @@ const runReminderTests = async () => {
     console.log('  5.1 Telegram Disabled -> In-App Fallback: PASS');
 
     console.log('\n[6] Fallback to In-App when Telegram Fails (Network / Bot Error):');
-    mockTelegramSuccess = false; // Simulate Telegram API failure
+    mockTelegramMode = 'confirmed_failure'; // Simulate Telegram API confirmed failure
 
     const taskFailTelegram = await Task.create({
       title: '[ReminderTest] Telegram Error Task',
@@ -252,7 +254,7 @@ const runReminderTests = async () => {
     assert(deliveryRec.status === DELIVERY_STATUS.SENT, 'Delivery record status should be sent');
 
     // Re-running scheduler must not re-attempt Telegram
-    mockTelegramSuccess = true;
+    mockTelegramMode = 'success';
     telegramCallCount = 0;
     const cycleStats5 = await runReminderCycle(refDate);
     assert(telegramCallCount === 0, 'Successfully fallen-back reminder must never re-trigger Telegram');
@@ -362,9 +364,190 @@ const runReminderTests = async () => {
       body: JSON.stringify({ timezone: 'Mars/Phobos' }),
     });
     assert(invalidTzRes.status === 400, 'Invalid timezone should be rejected with 400');
-    console.log('  11.1 Protected Timezone Sync Endpoint: PASS');
+    console.log('\n[12] Query Index & Explain Plan Verification:');
+    // Ensure indexes are synced
+    await Task.syncIndexes();
+    const indexes = await Task.collection.indexes();
+    const dueDateIndex = indexes.find(
+      (idx) => idx.key.dueDate === 1 && idx.key.status === 1
+    );
+    assert(dueDateIndex, 'Task model MUST have { dueDate: 1, status: 1 } index');
 
-    console.log('\n--- ALL 11 TASK REMINDER & SMART ROUTING TEST SUITES PASSED SUCCESSFULLY ---');
+    // Run explain on bounded reminder query
+    const windowStart = new Date(refDate.getTime() - 48 * 3600 * 1000);
+    const windowEnd = new Date(refDate.getTime() + 72 * 3600 * 1000);
+    const explainPlan = await Task.find({
+      dueDate: { $gte: windowStart, $lte: windowEnd },
+      status: { $ne: 'completed' },
+    }).explain('executionStats');
+
+    const explainStr = JSON.stringify(explainPlan);
+    const usesDueDateIndex =
+      explainStr.includes('dueDate_1_status_1') || explainStr.includes('dueDate_1');
+    assert(usesDueDateIndex, 'Query planner must utilize the dueDate index for bounded queries');
+    console.log('  12.1 Index { dueDate: 1, status: 1 } and Explain Plan Verified: PASS');
+
+    console.log('\n[13] In-App Idempotent Delivery and Retry (Zero Duplicate Notifications):');
+    const idempotentTask = await Task.create({
+      title: '[ReminderTest] Idempotent In-App Task',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userB._id,
+      assignedTo: userB._id,
+      status: 'todo',
+    });
+
+    const item13 = {
+      task: idempotentTask,
+      recipientUser: userB,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(idempotentTask._id, userB._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim13 = await claimReminderDelivery(item13);
+    assert(claim13, 'Initial claim must succeed');
+
+    // First dispatch creates in-app notification
+    const res13_first = await dispatchReminder(item13, claim13);
+    assert(res13_first.channel === DELIVERY_CHANNELS.IN_APP, 'Should deliver via in_app');
+
+    const notifCountAfterFirst = await Notification.countDocuments({ reminderDeliveryId: claim13._id });
+    assert(notifCountAfterFirst === 1, 'Exactly one in-app notification must be created');
+
+    // Simulate server crash before delivery record status update: reset status to PROCESSING
+    claim13.status = DELIVERY_STATUS.PROCESSING;
+    await claim13.save();
+
+    // Retry dispatch
+    const res13_retry = await dispatchReminder(item13, claim13);
+    assert(res13_retry.channel === DELIVERY_CHANNELS.IN_APP, 'Retry should complete via in_app');
+
+    const notifCountAfterRetry = await Notification.countDocuments({ reminderDeliveryId: claim13._id });
+    assert(notifCountAfterRetry === 1, 'Retry MUST NOT create a duplicate in-app notification');
+    console.log('  13.1 Retry After In-App Insert (Idempotent 0 duplicates): PASS');
+
+    console.log('\n[14] Concurrent In-App Dispatch Protection:');
+    const concurrentTask = await Task.create({
+      title: '[ReminderTest] Concurrent In-App Task',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userB._id,
+      assignedTo: userB._id,
+      status: 'todo',
+    });
+
+    const item14 = {
+      task: concurrentTask,
+      recipientUser: userB,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(concurrentTask._id, userB._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim14 = await claimReminderDelivery(item14);
+    // Concurrently dispatch reminder
+    const [resConcurrent1, resConcurrent2] = await Promise.all([
+      dispatchReminder(item14, claim14),
+      dispatchReminder(item14, claim14),
+    ]);
+
+    assert(resConcurrent1.success && resConcurrent2.success, 'Both concurrent attempts should finish safely');
+    const concurrentNotifCount = await Notification.countDocuments({ reminderDeliveryId: claim14._id });
+    assert(concurrentNotifCount === 1, 'Concurrent dispatches MUST result in exactly ONE notification');
+    console.log('  14.1 Concurrent Dispatch Protection: PASS');
+
+    console.log('\n[15] Unknown / Ambiguous Telegram Outcomes Handling:');
+    mockTelegramMode = 'network_error'; // Simulate network timeout/transport error
+
+    const taskAmbiguous = await Task.create({
+      title: '[ReminderTest] Ambiguous Network Error Task',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item15 = {
+      task: taskAmbiguous,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(taskAmbiguous._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim15 = await claimReminderDelivery(item15);
+    const res15 = await dispatchReminder(item15, claim15);
+
+    assert(res15.unknown === true, 'Transport error must be flagged as unknown outcome');
+    const rec15 = await TaskReminderDelivery.findById(claim15._id);
+    assert(rec15.status === DELIVERY_STATUS.UNKNOWN, 'Status must be marked as UNKNOWN');
+    assert(rec15.channel === DELIVERY_CHANNELS.TELEGRAM, 'Channel must be marked as TELEGRAM');
+
+    // Confirm no in-app notification was created for the ambiguous Telegram attempt
+    const inAppFor15 = await Notification.find({ taskId: taskAmbiguous._id });
+    assert(inAppFor15.length === 0, 'Ambiguous Telegram attempt MUST NOT create in-app notification');
+
+    // Re-running claim on UNKNOWN record must NOT reclaim for automatic redelivery
+    const reclaimUnknown = await claimReminderDelivery(item15);
+    assert(reclaimUnknown === null, 'UNKNOWN delivery records must NOT be automatically reclaimed');
+
+    // Test stale processing record during telegram dispatch
+    const staleTelegramRec = await TaskReminderDelivery.create({
+      taskId: taskAmbiguous._id,
+      recipient: userA._id,
+      dueDateKey: '2026-10-25',
+      reminderStage: REMINDER_STAGES.DAY_BEFORE,
+      dedupeKey: 'stale:telegram:test:key',
+      channel: DELIVERY_CHANNELS.TELEGRAM,
+      status: DELIVERY_STATUS.PROCESSING,
+      attemptCount: 1,
+      processingStartedAt: new Date(Date.now() - 30 * 60 * 1000), // 30 mins ago (stale)
+    });
+
+    const itemStaleTelegram = {
+      task: taskAmbiguous,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DAY_BEFORE,
+      dueDateKey: '2026-10-25',
+      dedupeKey: 'stale:telegram:test:key',
+    };
+
+    const claimStale = await claimReminderDelivery(itemStaleTelegram);
+    assert(claimStale === null, 'Stale Telegram processing record must NOT be reclaimed');
+
+    const updatedStale = await TaskReminderDelivery.findById(staleTelegramRec._id);
+    assert(updatedStale.status === DELIVERY_STATUS.UNKNOWN, 'Stale Telegram record must transition to UNKNOWN');
+    console.log('  15.1 Ambiguous Transport Outcome Marked UNKNOWN & Never Re-sent: PASS');
+
+    console.log('\n[16] Confirmed Telegram Rejection Falls Back to In-App Notification:');
+    mockTelegramMode = 'confirmed_failure'; // Simulate 400 Bad Request: chat not found
+
+    const taskConfirmedFail = await Task.create({
+      title: '[ReminderTest] Confirmed Telegram Rejection Task',
+      dueDate: new Date('2026-10-24T00:00:00.000Z'),
+      createdBy: userA._id,
+      assignedTo: userA._id,
+      status: 'todo',
+    });
+
+    const item16 = {
+      task: taskConfirmedFail,
+      recipientUser: userA,
+      reminderStage: REMINDER_STAGES.DUE_TODAY,
+      dueDateKey: '2026-10-24',
+      dedupeKey: buildDedupeKey(taskConfirmedFail._id, userA._id, '2026-10-24', REMINDER_STAGES.DUE_TODAY),
+    };
+
+    const claim16 = await claimReminderDelivery(item16);
+    const res16 = await dispatchReminder(item16, claim16);
+
+    assert(res16.success === true, 'Confirmed rejection fallback must succeed');
+    assert(res16.channel === DELIVERY_CHANNELS.IN_APP, 'Must fall back to in_app');
+
+    const notif16 = await Notification.find({ taskId: taskConfirmedFail._id });
+    assert(notif16.length === 1, 'Exactly one in-app notification created for confirmed rejection');
+    console.log('  16.1 Confirmed Rejection Fallback to In-App: PASS');
+
+    console.log('\n--- ALL 16 TASK REMINDER & SMART ROUTING TEST SUITES PASSED SUCCESSFULLY ---');
   } finally {
     // Restore global fetch
     global.fetch = originalFetch;

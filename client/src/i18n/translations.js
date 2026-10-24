@@ -243,7 +243,7 @@ export const translations = {
     telegramChatIdHelp: 'شناسه عددی اکانت خود را می‌توانید با زدن استارت به ربات @userinfobot دریافت و اینجا قرار دهید.',
     telegramBotTokenLabel: 'توکن ربات اختصاصی (اختیاری)',
     telegramBotTokenPlaceholder: 'مثلاً: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
-    telegramBotTokenHelp: 'اگر بات اختصاصی خودتان را در @BotFather ساخته‌اید توکن آن را وارد کنید، در غیر این‌صورت از بات پیش‌فرض سیستم استفاده می‌شود.',
+    telegramBotTokenHelp: 'اگر توکن وارد نکنید از ربات پیش‌فرض تسکرا (@Taskeraaa_Bot) استفاده می‌شود؛ باید اول به آیدی ربات رفته و یک‌بار دکمه Start را بزنید.',
     telegramPreferences: 'رویدادهای مورد نظر برای دریافت پیام:',
     notifyOnCreated: 'ایجاد تسک جدید (فضای شخصی یا تیمی)',
     notifyOnAssigned: 'محول شدن تسک جدید به من',
@@ -255,7 +255,7 @@ export const translations = {
     telegramTestSuccess: 'پیام تست به تلگرام ارسال شد! تلگرام خود را بررسی کنید.',
     telegramSetupGuideTitle: 'راهنمای سریع فعال‌سازی:',
     telegramStep1: '۱. به ربات @userinfobot در تلگرام پیام /start بفرستید تا Chat ID عددی خود را بگیرید.',
-    telegramStep2: '۲. دکمه استارت ربات تسک‌منیجر را در تلگرام بزنید تا ربات اجازه پیام دادن به شما را داشته باشد.',
+    telegramStep2: '۲. اگر توکن وارد نمی‌کنید، به آیدی ربات پیش‌فرض @Taskeraaa_Bot رفته و یک‌بار دکمه Start را بزنید تا ربات اجازه پیام دادن به شما را داشته باشد.',
     telegramStep3: '۳. شناسه را در کادر بالا وارد کرده، سوییچ را فعال کنید و دکمه تست را بزنید.',
 
     // Footer
@@ -512,7 +512,7 @@ export const translations = {
     telegramChatIdHelp: 'You can get your numerical Chat ID by sending /start to @userinfobot on Telegram.',
     telegramBotTokenLabel: 'Custom Bot Token (Optional)',
     telegramBotTokenPlaceholder: 'e.g. 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
-    telegramBotTokenHelp: 'Leave blank to use the system default bot, or supply your own bot token from @BotFather.',
+    telegramBotTokenHelp: "If you don't enter a token, Taskera's default bot (@Taskeraaa_Bot) will be used. You must first open the bot and press Start once.",
     telegramPreferences: 'Receive messages for:',
     notifyOnCreated: 'New task created (Personal or Workspace)',
     notifyOnAssigned: 'New task assigned to me',
@@ -523,9 +523,9 @@ export const translations = {
     telegramSaveSuccess: 'Telegram settings saved successfully.',
     telegramTestSuccess: 'Test message sent! Check your Telegram.',
     telegramSetupGuideTitle: 'Quick Setup Guide:',
-    telegramStep1: '1. Send /start to @userinfobot in Telegram to obtain your numeric Chat ID.',
-    telegramStep2: '2. Press Start on your TaskManager bot in Telegram so it can send you messages.',
-    telegramStep3: '3. Enter your Chat ID above, toggle enabled, and send a test message.',
+    telegramStep1: '1. Send /start to @userinfobot on Telegram to obtain your numeric Chat ID.',
+    telegramStep2: '2. If not using a custom token, open the default bot @Taskeraaa_Bot on Telegram and press Start so it can send you messages.',
+    telegramStep3: '3. Enter your Chat ID above, toggle enabled, then save and test.',
 
     // Footer
     footerBuiltWith: 'Crafted with precision by',

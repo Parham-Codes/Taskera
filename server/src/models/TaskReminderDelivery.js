@@ -15,6 +15,7 @@ export const DELIVERY_STATUS = {
   PROCESSING: 'processing',
   SENT: 'sent',
   FAILED: 'failed',
+  UNKNOWN: 'unknown',
 };
 
 const taskReminderDeliverySchema = new mongoose.Schema(

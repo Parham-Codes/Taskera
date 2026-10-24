@@ -147,6 +147,9 @@ taskSchema.index({ organizationId: 1, dueDate: 1 });
 // 5. Compound category queries and cascade updates
 taskSchema.index({ organizationId: 1, categoryId: 1 });
 
+// 6. Reminder query index: supports bounded dueDate range scans and non-completed status filtering across all scopes
+taskSchema.index({ dueDate: 1, status: 1 });
+
 const Task = mongoose.models.Task || mongoose.model('Task', taskSchema);
 
 export default Task;

@@ -19,7 +19,7 @@ export const triggerSchedulerTick = async () => {
       console.log(
         `[ReminderScheduler] Cycle completed: ${stats.totalEligible} eligible, ` +
           `${stats.sentTelegram} telegram, ${stats.sentInApp} in-app, ` +
-          `${stats.skipped} skipped, ${stats.failed} failed.`
+          `${stats.skipped} skipped, ${stats.unknown} unknown, ${stats.failed} failed.`
       );
     }
     return stats;
