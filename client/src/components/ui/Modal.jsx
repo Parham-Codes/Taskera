@@ -31,13 +31,13 @@ export const Modal = ({
   // Render via portal directly to document.body with clean responsive viewport padding
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3.5 sm:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3.5 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className={`w-full ${maxWidth} max-h-[88vh] my-auto flex flex-col glass-panel rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-6 relative animate-in zoom-in-95 duration-200`}
+        className={`w-full ${maxWidth} max-h-[88vh] my-auto flex flex-col bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-6 relative animate-in zoom-in-95 duration-200`}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/60 dark:border-slate-800 shrink-0">

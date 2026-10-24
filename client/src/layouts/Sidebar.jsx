@@ -65,6 +65,33 @@ export const Sidebar = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Lock background body scroll when mobile sidebar drawer is open (< 1024px)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleLock = () => {
+      if (window.innerWidth < 1024) {
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
+      } else {
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+      }
+    };
+
+    handleLock();
+    window.addEventListener('resize', handleLock);
+
+    return () => {
+      window.removeEventListener('resize', handleLock);
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isOpen]);
+
   const navItems = [
     { id: 'all', label: t('allTasks'), icon: LayoutGrid, count: taskCounts.all || 0 },
     { id: 'in-progress', label: t('inProgressTasks'), icon: Clock, count: taskCounts.inProgress || 0 },
@@ -80,13 +107,13 @@ export const Sidebar = ({
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
 
       {/* Main Sidebar Panel */}
       <aside
-        className={`fixed top-0 bottom-0 start-0 z-50 w-72 glass-panel border-e border-slate-200/90 dark:border-slate-800 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 start-0 z-50 w-72 h-screen h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-contain bg-white dark:bg-slate-900 border-e border-slate-200/90 dark:border-slate-800 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 select-none ${
           isOpen
             ? 'translate-x-0'
             : lang === 'fa'
@@ -95,7 +122,7 @@ export const Sidebar = ({
         }`}
       >
         {/* Top Section: Brand & Workspace Switcher */}
-        <div className="p-4 space-y-4 border-b border-slate-200/60 dark:border-slate-800">
+        <div className="p-4 space-y-4 border-b border-slate-200/60 dark:border-slate-800 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
@@ -145,7 +172,7 @@ export const Sidebar = ({
 
             {/* Dropdown Menu */}
             {workspaceMenuOpen && (
-              <div className="absolute top-full start-0 end-0 mt-1.5 glass-panel rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute top-full start-0 end-0 mt-1.5 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                   {t('workspaces')}
                 </div>
@@ -221,7 +248,7 @@ export const Sidebar = ({
         </div>
 
         {/* Middle Navigation Section */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-6">
           {/* Main Navigation Items */}
           <div className="space-y-1">
             <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
@@ -324,12 +351,12 @@ export const Sidebar = ({
         </div>
 
         {/* Bottom Section: User Profile & Quick Controls */}
-        <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2">
+        <div className="p-3 border-t border-slate-200/60 dark:border-slate-800 space-y-2 shrink-0">
           {/* Quick Controls: Theme & Language */}
           <div className="flex items-center justify-between px-1">
             <button
               onClick={toggleLang}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl glass-panel text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
               <Languages className="w-3.5 h-3.5 text-brand-500" />
               <span>{lang === 'fa' ? 'EN' : 'فا'}</span>
@@ -338,7 +365,7 @@ export const Sidebar = ({
             {onOpenTelegramSettings && (
               <button
                 onClick={onOpenTelegramSettings}
-                className={`relative p-2 rounded-xl glass-panel text-slate-500 hover:text-blue-500 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all ${
+                className={`relative p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-500 hover:text-blue-500 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all ${
                   user?.telegramSettings?.enabled ? 'text-blue-500 dark:text-blue-400' : ''
                 }`}
                 title={t('telegramSettingsTitle')}
@@ -352,7 +379,7 @@ export const Sidebar = ({
 
             <button
               onClick={toggleTheme}
-              className={`p-2 rounded-xl glass-panel text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all ${
+              className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-all ${
                 animating ? 'animate-theme-toggle' : ''
               }`}
               title="Toggle theme"
@@ -366,7 +393,7 @@ export const Sidebar = ({
 
             <button
               onClick={() => setLogoutConfirmOpen(true)}
-              className="p-2 rounded-xl glass-panel text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
               title={t('logout')}
             >
               <LogOut className={`w-4 h-4 transition-transform ${lang === 'fa' ? '-scale-x-100' : ''}`} />
@@ -374,7 +401,7 @@ export const Sidebar = ({
           </div>
 
           {/* User Info Card */}
-          <div className="flex items-center gap-2.5 p-2 rounded-2xl glass-panel border border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {user?.name ? user.name[0].toUpperCase() : 'U'}
             </div>

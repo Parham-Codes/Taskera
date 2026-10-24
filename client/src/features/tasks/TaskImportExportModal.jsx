@@ -152,8 +152,8 @@ export const TaskImportExportModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3.5 sm:p-6 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto overscroll-contain">
-      <div className="glass-panel w-full max-w-3xl my-auto rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3.5 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto overscroll-contain">
+      <div className="w-full max-w-3xl my-auto bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
         {/* Header */}
         <div className="p-3.5 sm:p-5 border-b border-slate-200/70 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

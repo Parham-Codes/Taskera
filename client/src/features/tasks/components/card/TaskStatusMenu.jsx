@@ -55,7 +55,7 @@ export const TaskStatusMenu = ({
 
       {isOpen && (
         <div
-          className={`absolute start-0 glass-panel rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 ${
+          className={`absolute start-0 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 ${
             isUp ? 'bottom-full mb-1.5 w-36' : 'top-full mt-1.5 w-40'
           }`}
         >
