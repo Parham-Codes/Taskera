@@ -49,38 +49,54 @@ export const verifyRefreshToken = (token) => {
   return jwt.verify(token, getRefreshTokenSecret());
 };
 
-export const setAuthCookies = (res, { accessToken, refreshToken }) => {
+/**
+ * Resolves cookie attributes based on environment and AUTH_COOKIE_SAME_SITE setting.
+ * Accepts only 'strict', 'lax', or 'none'.
+ * Defaults:
+ *   - Production: 'strict', secure: true, httpOnly: true
+ *   - Development: 'lax', secure: false, httpOnly: true
+ * When explicitly set to 'none':
+ *   - sameSite: 'none', secure: true (mandated by browsers), httpOnly: true
+ */
+export const getAuthCookieOptions = () => {
   const isProduction = process.env.NODE_ENV === 'production';
+  const rawSameSite = process.env.AUTH_COOKIE_SAME_SITE?.trim().toLowerCase();
+
+  let sameSite = isProduction ? 'strict' : 'lax';
+  if (rawSameSite === 'strict' || rawSameSite === 'lax' || rawSameSite === 'none') {
+    sameSite = rawSameSite;
+  }
+
+  // SameSite=None requires Secure=true in all modern browsers; otherwise the browser rejects the cookie.
+  const secure = sameSite === 'none' ? true : isProduction;
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/',
+  };
+};
+
+export const setAuthCookies = (res, { accessToken, refreshToken }) => {
+  const baseOptions = getAuthCookieOptions();
 
   res.cookie('accessToken', accessToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
+    ...baseOptions,
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
   if (refreshToken) {
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      ...baseOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
 };
 
 export const clearAuthCookies = (res) => {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const baseOptions = getAuthCookieOptions();
 
-  res.clearCookie('accessToken', {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
-  });
-
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
-  });
+  res.clearCookie('accessToken', baseOptions);
+  res.clearCookie('refreshToken', baseOptions);
 };
