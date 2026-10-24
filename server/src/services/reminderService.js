@@ -148,18 +148,30 @@ export const claimReminderDelivery = async (item) => {
 
       // If a stale processing record crashed during Telegram dispatch, its outcome is unknown
       if (isStale && existing.channel === DELIVERY_CHANNELS.TELEGRAM) {
-        await TaskReminderDelivery.updateOne(
-          { _id: existing._id, status: DELIVERY_STATUS.PROCESSING },
-          {
-            $set: {
-              status: DELIVERY_STATUS.UNKNOWN,
-              lastError: 'Server stalled or crashed during Telegram dispatch; outcome unknown.',
-            },
+        try {
+          const updateResult = await TaskReminderDelivery.updateOne(
+            { _id: existing._id, status: DELIVERY_STATUS.PROCESSING },
+            {
+              $set: {
+                status: DELIVERY_STATUS.UNKNOWN,
+                lastError: 'Server stalled or crashed during Telegram dispatch; outcome unknown.',
+              },
+            }
+          );
+          if (updateResult && updateResult.matchedCount === 0) {
+            console.warn(
+              `[ReminderService] Stale processing record for task ${task._id} did not match expected PROCESSING status. Transition to UNKNOWN was not applied; automatic redelivery remains suppressed.`
+            );
+          } else {
+            console.warn(
+              `[ReminderService] Stale processing record for task ${task._id} was during Telegram dispatch. Transitioned to UNKNOWN to prevent duplicate delivery.`
+            );
           }
-        );
-        console.warn(
-          `[ReminderService] Stale processing record for task ${task._id} was during Telegram dispatch. Transitioned to UNKNOWN to prevent duplicate delivery.`
-        );
+        } catch (staleDbErr) {
+          console.error(
+            `[ReminderService] Database unavailable while updating stale Telegram record to UNKNOWN for task ${task._id} (${staleDbErr.message}). Transition could not be persisted; automatic redelivery remains suppressed.`
+          );
+        }
         return null;
       }
 

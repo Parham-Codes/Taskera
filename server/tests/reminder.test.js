@@ -603,10 +603,10 @@ const runReminderTests = async () => {
       TaskReminderDelivery.updateOne = origUpdateOne;
     }
 
-    // 17.2 Telegram succeeds, database temporarily completely unavailable -> never retryable FAILED, stale recovery safely marks UNKNOWN
+    // 17.2 Persistent SENT-Write Failure Simulation After Confirmed Telegram Success
     mockTelegramMode = 'success';
     const task17_2 = await Task.create({
-      title: '[ReminderTest] 17.2 Telegram Success DB Completely Unavailable',
+      title: '[ReminderTest] 17.2 Persistent SENT-Write Failure Simulation',
       dueDate: new Date('2026-10-24T00:00:00.000Z'),
       createdBy: userA._id,
       assignedTo: userA._id,
@@ -622,47 +622,79 @@ const runReminderTests = async () => {
     };
 
     const claim17_2 = await claimReminderDelivery(item17_2);
+    const beforeTelegramCount17_2 = telegramCallCount;
+    let failStaleRecoveryWrites = false;
+
     try {
       TaskReminderDelivery.updateOne = async function (filter, update, options) {
-        // Allow setting channel: TELEGRAM before dispatch, but fail all updates to SENT
-        if (update?.$set?.status === DELIVERY_STATUS.SENT) {
-          throw new Error('Simulated total DB outage on SENT update');
+        // Target specifically this delivery record
+        if (String(filter?._id) === String(claim17_2._id)) {
+          // Fail all attempts to persist status: SENT (both initial and recovery)
+          if (update?.$set?.status === DELIVERY_STATUS.SENT) {
+            throw new Error('Simulated persistent write failure on SENT update');
+          }
+          if (failStaleRecoveryWrites) {
+            throw new Error('Simulated database unavailability during stale recovery write');
+          }
         }
         return origUpdateOne.call(this, filter, update, options);
       };
 
       const res17_2 = await dispatchReminder(item17_2, claim17_2);
+      // 1. Telegram was called exactly once and returned success
+      assert(telegramCallCount === beforeTelegramCount17_2 + 1, 'Telegram must be called exactly once');
       assert(res17_2.success === true, 'Dispatch must report success because Telegram confirmed delivery');
+      assert(res17_2.channel === DELIVERY_CHANNELS.TELEGRAM, 'Reported channel must be TELEGRAM');
 
+      // 2. The failure does not turn the delivery into retryable FAILED
       const dbRec17_2 = await TaskReminderDelivery.findById(claim17_2._id);
-      assert(dbRec17_2.status !== DELIVERY_STATUS.FAILED, 'Must NOT be marked FAILED even under complete DB outage');
+      assert(dbRec17_2.status !== DELIVERY_STATUS.FAILED, 'Must NOT be marked FAILED when persistent SENT writes fail');
       assert(dbRec17_2.channel === DELIVERY_CHANNELS.TELEGRAM, 'Channel must be recorded as TELEGRAM');
 
-      // Fresh claim must not redeliver
+      // 3. Stays in a non-retryable state while persistence is failing
       const freshClaim = await claimReminderDelivery(item17_2);
-      assert(freshClaim === null, 'Fresh processing claim must return null');
+      assert(freshClaim === null, 'Fresh processing claim must return null (non-retryable)');
 
-      // Simulate time advancing past STALE_PROCESSING_THRESHOLD_MS (e.g. 25 minutes ago)
+      // 6. No in-app fallback created solely because saving SENT failed
+      const notifs17_2 = await Notification.find({ taskId: task17_2._id });
+      assert(notifs17_2.length === 0, 'No in-app fallback must be created when Telegram confirmed success');
+
+      // Verify claimReminderDelivery behavior when stale recovery cannot update because DB is unavailable
       await TaskReminderDelivery.updateOne(
         { _id: claim17_2._id },
         { $set: { processingStartedAt: new Date(Date.now() - 25 * 60 * 1000) } }
       );
+      failStaleRecoveryWrites = true;
+      const staleClaimWhileDbDown = await claimReminderDelivery(item17_2);
+      assert(staleClaimWhileDbDown === null, 'Stale recovery must return null even if DB fails to update record');
+      assert(telegramCallCount === beforeTelegramCount17_2 + 1, 'Telegram must NOT be resent while DB is failing');
 
-      // Stale recovery should transition to UNKNOWN and return null (never retry Telegram)
+      // 4. After restoring database writes and simulating record is stale, recovery transitions to UNKNOWN
+      failStaleRecoveryWrites = false;
+      TaskReminderDelivery.updateOne = origUpdateOne; // fully restored
+
       const staleClaim = await claimReminderDelivery(item17_2);
-      assert(staleClaim === null, 'Stale recovery must return null (never redeliver to Telegram)');
+      assert(staleClaim === null, 'Stale recovery must return null and safely prevent redelivery');
 
       const recoveredRec17_2 = await TaskReminderDelivery.findById(claim17_2._id);
       assert(recoveredRec17_2.status === DELIVERY_STATUS.UNKNOWN, 'Stale processing record must transition to UNKNOWN');
-      console.log('  17.2 Telegram Success Under DB Outage: PASS (Safe PROCESSING state, stale recovery transitions to UNKNOWN)');
+
+      // 5. Subsequent reminder cycle or claim does not send another Telegram message
+      const postRecoveryClaim = await claimReminderDelivery(item17_2);
+      assert(postRecoveryClaim === null, 'Post-recovery claim must be null');
+      assert(telegramCallCount === beforeTelegramCount17_2 + 1, 'No duplicate Telegram message sent');
+
+      const notifsFinal17_2 = await Notification.find({ taskId: task17_2._id });
+      assert(notifsFinal17_2.length === 0, 'Final in-app notifications must remain zero');
+      console.log('  17.2 Persistent SENT-Write Failure Simulation: PASS (Never FAILED, non-retryable, transitions to UNKNOWN, zero redeliveries)');
     } finally {
       TaskReminderDelivery.updateOne = origUpdateOne;
     }
 
-    // 17.3 Persisting UNKNOWN fails after a transport error -> never converted to FAILED
+    // 17.3 Persistent UNKNOWN-Write Failure Simulation After Ambiguous Transport Error
     mockTelegramMode = 'network_error';
     const task17_3 = await Task.create({
-      title: '[ReminderTest] 17.3 Transport Error UNKNOWN Persistence Failure',
+      title: '[ReminderTest] 17.3 Persistent UNKNOWN-Write Failure Simulation',
       dueDate: new Date('2026-10-24T00:00:00.000Z'),
       createdBy: userA._id,
       assignedTo: userA._id,
@@ -678,27 +710,56 @@ const runReminderTests = async () => {
     };
 
     const claim17_3 = await claimReminderDelivery(item17_3);
-    let failUnknownCount = 0;
+    const beforeTelegramCount17_3 = telegramCallCount;
+
     try {
       TaskReminderDelivery.updateOne = async function (filter, update, options) {
-        if (update?.$set?.status === DELIVERY_STATUS.UNKNOWN && failUnknownCount === 0) {
-          failUnknownCount++;
-          throw new Error('Simulated write failure on UNKNOWN update');
+        // Target specifically this delivery record
+        if (String(filter?._id) === String(claim17_3._id)) {
+          // Fail all attempts to persist status: UNKNOWN (both initial and catch path recovery)
+          if (update?.$set?.status === DELIVERY_STATUS.UNKNOWN) {
+            throw new Error('Simulated persistent write failure on UNKNOWN update');
+          }
         }
         return origUpdateOne.call(this, filter, update, options);
       };
 
       const res17_3 = await dispatchReminder(item17_3, claim17_3);
+      // 1. Mocked Telegram transport failure; called once, no immediate retry
+      assert(telegramCallCount === beforeTelegramCount17_3 + 1, 'Telegram attempt executed once with transport failure');
       assert(res17_3.unknown === true, 'Must report unknown outcome');
 
+      // 2 & 3. Neither initial nor recovery update persisted; generic catch path NEVER overwrites with FAILED
       const rec17_3 = await TaskReminderDelivery.findById(claim17_3._id);
       assert(rec17_3.status !== DELIVERY_STATUS.FAILED, 'Record must NEVER be overwritten as FAILED after transport error');
-      assert(rec17_3.status === DELIVERY_STATUS.UNKNOWN, 'Record must be marked UNKNOWN');
+      assert(rec17_3.status === DELIVERY_STATUS.PROCESSING, 'Record remains in safe PROCESSING state with channel: TELEGRAM');
+      assert(rec17_3.channel === DELIVERY_CHANNELS.TELEGRAM, 'Channel must be recorded as TELEGRAM');
 
-      // Verify no in-app fallback was created
+      // 6. No in-app fallback created for ambiguous Telegram result
       const notifs17_3 = await Notification.find({ taskId: task17_3._id });
       assert(notifs17_3.length === 0, 'No in-app notification must be created on transport failure');
-      console.log('  17.3 Transport Error Persistence Failure: PASS (Never marked FAILED, no in-app duplicate)');
+
+      // 4. Restore normal database writes, simulate stale recovery, verify delivery is made non-retryable
+      TaskReminderDelivery.updateOne = origUpdateOne;
+      await TaskReminderDelivery.updateOne(
+        { _id: claim17_3._id },
+        { $set: { processingStartedAt: new Date(Date.now() - 25 * 60 * 1000) } }
+      );
+
+      const staleClaim17_3 = await claimReminderDelivery(item17_3);
+      assert(staleClaim17_3 === null, 'Stale recovery must return null (never redeliver to Telegram)');
+
+      const recoveredRec17_3 = await TaskReminderDelivery.findById(claim17_3._id);
+      assert(recoveredRec17_3.status === DELIVERY_STATUS.UNKNOWN, 'Record must now be safely marked UNKNOWN');
+
+      // 5. Later scheduler cycle or claim does not send Telegram again
+      const postClaim17_3 = await claimReminderDelivery(item17_3);
+      assert(postClaim17_3 === null, 'Subsequent claim must return null');
+      assert(telegramCallCount === beforeTelegramCount17_3 + 1, 'Telegram must not be contacted again');
+
+      const notifsFinal17_3 = await Notification.find({ taskId: task17_3._id });
+      assert(notifsFinal17_3.length === 0, 'In-app notification count must remain 0');
+      console.log('  17.3 Persistent UNKNOWN-Write Failure Simulation: PASS (Never marked FAILED, safely recovers to UNKNOWN, zero duplicates)');
     } finally {
       TaskReminderDelivery.updateOne = origUpdateOne;
     }

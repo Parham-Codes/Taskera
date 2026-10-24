@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Start MongoDB replica set
+        uses: supercharge/mongodb-github-action@1.12.1
+        with:
+          mongodb-version: '7.0'
+          mongodb-replica-set: 'test-rs'
+          mongodb-port: 27017
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Run backend test suite
+        run: npm test
+        env:
+          NODE_ENV: test
+          MONGO_URI: mongodb://127.0.0.1:27017/taskera?replicaSet=test-rs
+          JWT_ACCESS_SECRET: test_jwt_access_secret_only_for_testing_purposes_123456
+          JWT_REFRESH_SECRET: test_jwt_refresh_secret_only_for_testing_purposes_123456
+          PORT: 5001
+
+  frontend:
+    name: Frontend Quality Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Run frontend lint
+        run: npm run lint
+
+      - name: Build frontend production bundle
+        run: npm run build
