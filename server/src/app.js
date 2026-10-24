@@ -8,6 +8,7 @@ import taskRoutes from './routes/taskRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import telegramRoutes from './routes/telegramRoutes.js';
+import internalRoutes from './routes/internalRoutes.js';
 import { generalApiLimiter } from './middlewares/rateLimiter.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
@@ -44,6 +45,7 @@ server.use('/api/tasks', taskRoutes);
 server.use('/api/notifications', notificationRoutes);
 server.use('/api/categories', categoryRoutes);
 server.use('/api/telegram', telegramRoutes);
+server.use('/api/internal', internalRoutes);
 
 // Global Centralized Error Handler (must be last)
 server.use(errorHandler);

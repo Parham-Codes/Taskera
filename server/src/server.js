@@ -15,8 +15,14 @@ const PORT = process.env.PORT || 7000;
 async function bootstrap() {
   await connectDB();
 
-  // Start background task reminder scheduler only after DB is connected
-  startReminderScheduler();
+  // Start in-process reminder scheduler if enabled (defaults to true for local development)
+  const isSchedulerEnabled = process.env.ENABLE_REMINDER_SCHEDULER !== 'false';
+  if (isSchedulerEnabled) {
+    console.log('[Server] In-process reminder scheduler is enabled.');
+    startReminderScheduler();
+  } else {
+    console.log('[Server] In-process reminder scheduler is disabled (ENABLE_REMINDER_SCHEDULER=false). Recurring reminders will rely on external trigger.');
+  }
 
   const httpServer = server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

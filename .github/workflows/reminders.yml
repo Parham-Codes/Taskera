@@ -1,0 +1,118 @@
+name: Scheduled Reminders
+
+on:
+  schedule:
+    # Trigger every 15 minutes at offset minutes 7, 22, 37, and 52 to avoid top-of-hour congestion
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: taskera-reminder-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-reminders:
+    name: Trigger Task Reminders
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if reminders are enabled
+        id: check-enabled
+        env:
+          TASKERA_REMINDERS_ENABLED: ${{ vars.TASKERA_REMINDERS_ENABLED }}
+        run: |
+          if [ "$TASKERA_REMINDERS_ENABLED" != "true" ]; then
+            echo "TASKERA_REMINDERS_ENABLED is not set to 'true' (current value: '${TASKERA_REMINDERS_ENABLED}'). Skipping reminder trigger."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "TASKERA_REMINDERS_ENABLED is 'true'. Proceeding with reminder trigger."
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate configuration
+        if: steps.check-enabled.outputs.skipped != 'true'
+        env:
+          TASKERA_API_URL: ${{ vars.TASKERA_API_URL }}
+          TASKERA_REMINDER_TRIGGER_SECRET: ${{ secrets.TASKERA_REMINDER_TRIGGER_SECRET }}
+        run: |
+          if [ -z "$TASKERA_API_URL" ]; then
+            echo "::error::TASKERA_API_URL repository variable is not configured."
+            exit 1
+          fi
+
+          if [[ ! "$TASKERA_API_URL" =~ ^https://[A-Za-z0-9_.-]+(:[0-9]+)?(/.*)?$ ]]; then
+            echo "::error::TASKERA_API_URL must be a valid HTTPS URL (received non-HTTPS or malformed value)."
+            exit 1
+          fi
+
+          if [ -z "$TASKERA_REMINDER_TRIGGER_SECRET" ]; then
+            echo "::error::TASKERA_REMINDER_TRIGGER_SECRET repository secret is not configured."
+            exit 1
+          fi
+
+          echo "Configuration validation passed."
+
+      - name: Trigger reminder cycle
+        if: steps.check-enabled.outputs.skipped != 'true'
+        env:
+          TASKERA_API_URL: ${{ vars.TASKERA_API_URL }}
+          TASKERA_REMINDER_TRIGGER_SECRET: ${{ secrets.TASKERA_REMINDER_TRIGGER_SECRET }}
+        run: |
+          # Strip trailing slash from API_URL defensively
+          CLEAN_URL="${TASKERA_API_URL%/}"
+          ENDPOINT="${CLEAN_URL}/api/internal/reminders/run"
+
+          echo "Triggering Taskera reminder cycle at: ${ENDPOINT}"
+
+          MAX_ATTEMPTS=4
+          RETRY_DELAY=15
+          ATTEMPT=1
+          SUCCESS=false
+
+          while [ "$ATTEMPT" -le "$MAX_ATTEMPTS" ]; do
+            echo "Attempt ${ATTEMPT} of ${MAX_ATTEMPTS}..."
+
+            # Capture HTTP status code directly. Discard body to /dev/null to avoid leaking sensitive data into logs.
+            # Timeout set to 120s to allow Render instance to wake from cold sleep.
+            # Stderr is redirected so connection failure notices cannot corrupt HTTP_STATUS.
+            HTTP_STATUS=$(curl -s -S \
+              --request POST \
+              --url "$ENDPOINT" \
+              --header "Authorization: Bearer ${TASKERA_REMINDER_TRIGGER_SECRET}" \
+              --header "Content-Type: application/json" \
+              --header "User-Agent: Taskera-Scheduled-Reminders/1.0" \
+              --max-time 120 \
+              --output /dev/null \
+              --write-out "%{http_code}" 2>/dev/null) || HTTP_STATUS="000"
+
+            echo "Response HTTP Status: ${HTTP_STATUS}"
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "Reminder cycle invocation succeeded with status 200."
+              SUCCESS=true
+              break
+            elif [ "$HTTP_STATUS" = "409" ]; then
+              echo "Reminder cycle already in progress (status 409). Accepted outcome to prevent overlap."
+              SUCCESS=true
+              break
+            elif [ "$HTTP_STATUS" = "000" ] || [ -z "$HTTP_STATUS" ] || { [ "$HTTP_STATUS" -ge 500 ] 2>/dev/null && [ "$HTTP_STATUS" -le 599 ] 2>/dev/null; }; then
+              echo "Transient failure encountered (HTTP ${HTTP_STATUS}). Render may be spinning up from cold sleep."
+              if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
+                echo "Waiting ${RETRY_DELAY} seconds before retry..."
+                sleep "$RETRY_DELAY"
+              fi
+            else
+              # Non-transient client/auth error (e.g. 401 Unauthorized, 403 Forbidden, 400 Bad Request)
+              echo "::error::Received non-retryable HTTP error status: ${HTTP_STATUS}"
+              exit 1
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          if [ "$SUCCESS" != "true" ]; then
+            echo "::error::Failed to trigger reminder cycle after ${MAX_ATTEMPTS} attempts. Last status: ${HTTP_STATUS}"
+            exit 1
+          fi
