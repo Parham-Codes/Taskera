@@ -117,19 +117,32 @@ export const TaskCard = ({
             </span>
           )}
 
-          {task.assignedTo && (
-            <div
-              className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300"
-              title={`Assigned to ${task.assignedTo.name}`}
-            >
-              <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
-                {task.assignedTo.name[0].toUpperCase()}
+          {(() => {
+            const assignees = Array.isArray(task.assignedTo)
+              ? task.assignedTo
+              : task.assignedTo ? [task.assignedTo] : [];
+            if (assignees.length === 0) return null;
+            return (
+              <div
+                className="flex items-center -space-x-2 rtl:space-x-reverse text-xs font-semibold text-slate-600 dark:text-slate-300"
+                title={assignees.map((a) => a?.name || 'Member').join(', ')}
+              >
+                {assignees.slice(0, 3).map((a, i) => (
+                  <div
+                    key={a?._id || i}
+                    className="w-7 h-7 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900 shadow-xs shrink-0"
+                  >
+                    {(a?.name?.[0] || 'U').toUpperCase()}
+                  </div>
+                ))}
+                {assignees.length > 3 && (
+                  <div className="w-7 h-7 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900 shadow-xs shrink-0">
+                    +{assignees.length - 3}
+                  </div>
+                )}
               </div>
-              <span className="hidden sm:inline text-xs font-medium">
-                {task.assignedTo.name}
-              </span>
-            </div>
-          )}
+            );
+          })()}
 
           <button
             onClick={() => onOpenComments(task)}
@@ -281,20 +294,33 @@ export const TaskCard = ({
           </button>
         </div>
 
-        {/* Assignee Avatar */}
-        {task.assignedTo && (
-          <div
-            className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-600 dark:text-slate-400"
-            title={`Assigned to ${task.assignedTo.name}`}
-          >
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
-              {task.assignedTo.name[0].toUpperCase()}
+        {/* Assignees Avatars */}
+        {(() => {
+          const assignees = Array.isArray(task.assignedTo)
+            ? task.assignedTo
+            : task.assignedTo ? [task.assignedTo] : [];
+          if (assignees.length === 0) return null;
+          return (
+            <div
+              className="flex items-center -space-x-1.5 rtl:space-x-reverse"
+              title={assignees.map((a) => a?.name || 'Member').join(', ')}
+            >
+              {assignees.slice(0, 3).map((a, i) => (
+                <div
+                  key={a?._id || i}
+                  className="w-6 h-6 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900 shadow-xs shrink-0"
+                >
+                  {(a?.name?.[0] || 'U').toUpperCase()}
+                </div>
+              ))}
+              {assignees.length > 3 && (
+                <div className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900 shadow-xs shrink-0">
+                  +{assignees.length - 3}
+                </div>
+              )}
             </div>
-            <span className="max-w-[70px] truncate hidden sm:inline">
-              {task.assignedTo.name}
-            </span>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Bottom Row: Mini Status Pill & Open Details Button */}

@@ -21,7 +21,13 @@ export const createTaskSchema = z.object({
       .default(TASK_PRIORITY.MEDIUM),
     dueDate: z.string().datetime().nullable().optional(),
     organizationId: z.string().regex(objectIdRegex, 'Invalid Organization ID').nullable().optional(),
-    assignedTo: z.string().regex(objectIdRegex, 'Invalid Assigned User ID').nullable().optional(),
+    assignedTo: z
+      .union([
+        z.string().regex(objectIdRegex, 'Invalid Assigned User ID'),
+        z.array(z.string().regex(objectIdRegex, 'Invalid Assigned User ID')),
+      ])
+      .nullable()
+      .optional(),
     categoryId: z.string().regex(objectIdRegex, 'Invalid Category ID').nullable().optional(),
     subtasks: z
       .array(
@@ -46,7 +52,13 @@ export const updateTaskSchema = z.object({
     status: z.enum(Object.values(TASK_STATUS)).optional(),
     priority: z.enum(Object.values(TASK_PRIORITY)).optional(),
     dueDate: z.string().datetime().nullable().optional(),
-    assignedTo: z.string().regex(objectIdRegex, 'Invalid Assigned User ID').nullable().optional(),
+    assignedTo: z
+      .union([
+        z.string().regex(objectIdRegex, 'Invalid Assigned User ID'),
+        z.array(z.string().regex(objectIdRegex, 'Invalid Assigned User ID')),
+      ])
+      .nullable()
+      .optional(),
     categoryId: z.string().regex(objectIdRegex, 'Invalid Category ID').nullable().optional(),
     subtasks: z
       .array(

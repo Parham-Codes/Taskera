@@ -23,7 +23,7 @@ export const TaskDetailSubtasks = ({
   };
 
   return (
-    <div className="glass-panel rounded-3xl p-4 sm:p-5 border border-slate-200/60 dark:border-slate-800 space-y-3 shadow-xs">
+    <div className="glass-panel rounded-2xl p-4 sm:p-5 border border-slate-200/60 dark:border-slate-800 space-y-3 shadow-xs">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CheckSquare className="w-4 h-4 text-brand-500" />

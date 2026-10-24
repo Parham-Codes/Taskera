@@ -568,3 +568,71 @@ export const sendTaskReminderTelegram = async ({
     return { success: false, reason: cleanReason, isConfirmedFailure: false, isUnknown: true };
   }
 };
+
+/**
+ * Dispatch Telegram notification when a comment is added to a task.
+ * Includes commenter name, task title, comment preview, and deep link to the web app.
+ *
+ * @param {Object} params
+ * @param {Object} params.recipientUser
+ * @param {Object} params.task
+ * @param {string} params.commenterName
+ * @param {string} params.commentContent
+ * @param {string} params.taskUrl
+ */
+export const notifyTaskCommentOnTelegram = async ({
+  recipientUser,
+  task,
+  commenterName,
+  commentContent,
+  taskUrl,
+}) => {
+  if (!recipientUser?.telegramSettings?.enabled) {
+    return { skipped: true, reason: 'NOT_ENABLED' };
+  }
+
+  const { botToken, chatId, notifyOnComments } = recipientUser.telegramSettings;
+
+  if (!chatId) {
+    return { skipped: true, reason: 'NO_CHAT_ID' };
+  }
+
+  if (notifyOnComments === false) {
+    return { skipped: true, reason: 'EVENT_MUTED' };
+  }
+
+  const headerTitle = '💬 <b>نظر جدید روی تسک</b>';
+  const cleanComment =
+    commentContent && commentContent.length > 250
+      ? commentContent.substring(0, 247) + '...'
+      : commentContent || '';
+
+  const messageLines = [
+    headerTitle,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+    `👤 <b>ارسال‌کننده نظر:</b> ${escapeHtml(commenterName || 'کاربر')}`,
+    `💬 <b>متن نظر:</b>\n<i>${escapeHtml(cleanComment)}</i>`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+  ];
+
+  if (taskUrl) {
+    messageLines.push(`🔗 <a href="${escapeHtml(taskUrl)}">مشاهده تسک و پاسخ در سایت</a>`);
+  }
+
+  messageLines.push(`⏰ ${new Date().toLocaleString('fa-IR')}`);
+
+  const fullMessage = messageLines.filter(Boolean).join('\n');
+
+  try {
+    return await sendTelegramMessage({
+      botToken,
+      chatId,
+      message: fullMessage,
+    });
+  } catch (error) {
+    const cleanReason = sanitizeTelegramErrorMessage(error.message, botToken);
+    return { success: false, reason: cleanReason, isConfirmedFailure: false, isUnknown: true };
+  }
+};
+

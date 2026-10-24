@@ -265,7 +265,7 @@ export const CommandPalette = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[82vh] my-auto sm:my-0 animate-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-xl sm:rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[82vh] my-auto sm:my-0 animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Bar Input */}

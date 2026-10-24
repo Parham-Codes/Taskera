@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, Trash2, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, Trash2, Send, Loader2, Bell, BellOff } from 'lucide-react';
 import { formatTaskDate } from '../../utils/taskHelpers.js';
 
 export const TaskDetailComments = ({
@@ -8,6 +8,10 @@ export const TaskDetailComments = ({
   onDeleteComment,
   onSendComment,
   submittingComment,
+  isMuted = false,
+  canMute = false,
+  onToggleMute,
+  mutingLoading = false,
   lang,
   t,
 }) => {
@@ -23,11 +27,45 @@ export const TaskDetailComments = ({
 
   return (
     <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-3">
-      <div className="flex items-center gap-2">
-        <MessageSquare className="w-4 h-4 text-brand-500" />
-        <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">
-          {t('commentsTitle')} ({comments.length})
-        </h4>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-brand-500" />
+          <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">
+            {t('commentsTitle')} ({comments.length})
+          </h4>
+        </div>
+
+        {canMute && (
+          <button
+            type="button"
+            onClick={onToggleMute}
+            disabled={mutingLoading}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all border ${
+              isMuted
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            title={
+              isMuted
+                ? (lang === 'fa' ? 'اعلان‌های تلگرام برای شما بی‌صدا است. جهت فعال‌سازی کلیک کنید' : 'Notifications muted. Click to resume')
+                : (lang === 'fa' ? 'جهت بی‌صدا کردن اعلان‌های این گفت‌وگو کلیک کنید' : 'Click to mute thread notifications')
+            }
+          >
+            {mutingLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : isMuted ? (
+              <>
+                <Bell className="w-3 h-3 text-amber-500" />
+                <span>{lang === 'fa' ? 'فعال‌سازی اعلان‌ها' : 'Unmute'}</span>
+              </>
+            ) : (
+              <>
+                <BellOff className="w-3 h-3 text-slate-400" />
+                <span>{lang === 'fa' ? 'بی‌صدا کردن این گفت‌وگو' : 'Mute Thread'}</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Comments List */}
@@ -42,7 +80,7 @@ export const TaskDetailComments = ({
             return (
               <div
                 key={c._id}
-                className={`p-3 rounded-2xl text-xs space-y-1.5 ${
+                className={`p-3 rounded-xl text-xs space-y-1.5 ${
                   isMine
                     ? 'glass-panel border-brand-500/30 ms-4'
                     : 'bg-slate-100/70 dark:bg-slate-800/40 me-4'

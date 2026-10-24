@@ -21,7 +21,7 @@ export const TaskListView = ({
   t,
 }) => {
   return (
-    <div className="glass-panel rounded-3xl border border-slate-200/90 dark:border-slate-800 divide-y divide-slate-200/60 dark:divide-slate-800 overflow-hidden shadow-xs">
+    <div className="glass-panel rounded-2xl border border-slate-200/90 dark:border-slate-800 divide-y divide-slate-200/60 dark:divide-slate-800 overflow-hidden shadow-xs">
       {filteredTasks.length === 0 ? (
         <div className="p-12 text-center text-slate-400 text-sm">
           {t('noTasksInWorkspace')}
@@ -96,14 +96,32 @@ export const TaskListView = ({
                 </span>
               )}
 
-              {task.assignedTo && (
-                <div
-                  className="w-6 h-6 rounded-lg bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold flex items-center justify-center"
-                  title={task.assignedTo.name}
-                >
-                  {task.assignedTo.name[0].toUpperCase()}
-                </div>
-              )}
+              {(() => {
+                const assignees = Array.isArray(task.assignedTo)
+                  ? task.assignedTo
+                  : task.assignedTo ? [task.assignedTo] : [];
+                if (assignees.length === 0) return null;
+                return (
+                  <div
+                    className="flex items-center -space-x-1.5 rtl:space-x-reverse"
+                    title={assignees.map((a) => a?.name || 'Member').join(', ')}
+                  >
+                    {assignees.slice(0, 3).map((a, i) => (
+                      <div
+                        key={a?._id || i}
+                        className="w-6 h-6 rounded-lg bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold flex items-center justify-center ring-1 ring-white dark:ring-slate-900"
+                      >
+                        {(a?.name?.[0] || 'U').toUpperCase()}
+                      </div>
+                    ))}
+                    {assignees.length > 3 && (
+                      <div className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-bold flex items-center justify-center ring-1 ring-white dark:ring-slate-900">
+                        +{assignees.length - 3}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <button
                 onClick={() => onOpenDetail(task)}

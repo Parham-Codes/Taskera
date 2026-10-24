@@ -40,7 +40,7 @@ export const taskCrudService = {
     } = taskData;
 
     let targetOrgId = null;
-    let targetAssigneeId = user._id;
+    let targetAssigneeIds = [user._id];
 
     // Handle Organization Task
     if (organizationId) {
@@ -55,23 +55,30 @@ export const taskCrudService = {
 
       targetOrgId = organizationId;
 
-      // 2. If assigning to another member, verify they also belong to the organization
+      // 2. If assigning to members, verify they also belong to the organization
       if (assignedTo) {
-        const assigneeMembership = await OrganizationMember.findOne({
-          organizationId,
-          userId: assignedTo,
-        }).lean();
+        const rawList = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+        const uniqueIds = [...new Set(rawList.filter(Boolean))];
 
-        if (!assigneeMembership) {
-          throw new TaskError(
-            'Assigned user is not a member of this organization',
-            400
-          );
+        for (const uid of uniqueIds) {
+          const assigneeMembership = await OrganizationMember.findOne({
+            organizationId,
+            userId: uid,
+          }).lean();
+
+          if (!assigneeMembership) {
+            throw new TaskError(
+              'One or more assigned users are not members of this organization',
+              400
+            );
+          }
         }
-        targetAssigneeId = assignedTo;
+        targetAssigneeIds = uniqueIds;
       } else {
-        targetAssigneeId = user._id;
+        targetAssigneeIds = [user._id];
       }
+    } else {
+      targetAssigneeIds = [user._id];
     }
 
     const task = await Task.create({
@@ -81,7 +88,7 @@ export const taskCrudService = {
       priority,
       dueDate,
       createdBy: user._id,
-      assignedTo: targetAssigneeId,
+      assignedTo: targetAssigneeIds,
       organizationId: targetOrgId,
       categoryId: categoryId || null,
       subtasks: Array.isArray(subtasks) ? subtasks : [],
@@ -103,46 +110,38 @@ export const taskCrudService = {
         taskId: task._id,
         actorId: user._id,
         action: ACTIVITY_ACTIONS.TASK_CREATED,
-        details: { title: task.title, assignedTo: targetAssigneeId },
+        details: { title: task.title, assignedTo: targetAssigneeIds },
       });
     }
 
     // Asynchronous Telegram Notification dispatch (Non-blocking)
     (async () => {
       try {
-        const isSelfAssigned =
-          targetAssigneeId.toString() === user._id.toString();
+        const creatorIdStr = user._id.toString();
+        for (const assigneeId of targetAssigneeIds) {
+          const assigneeIdStr = assigneeId.toString();
+          if (assigneeIdStr === creatorIdStr) {
+            if (user?.telegramSettings?.enabled && user?.telegramSettings?.notifyOnCreated !== false) {
+              await notifyTaskEventOnTelegram({
+                recipientUser: user,
+                task: populatedTask,
+                eventType: 'created',
+                actorName: user.name,
+              });
+            }
+          } else {
+            const assigneeUser = await User.findById(assigneeId)
+              .select('name email telegramSettings')
+              .lean();
 
-        if (isSelfAssigned) {
-          if (user?.telegramSettings?.enabled) {
-            await notifyTaskEventOnTelegram({
-              recipientUser: user,
-              task: populatedTask,
-              eventType: 'created',
-              actorName: user.name,
-            });
-          }
-        } else {
-          const assigneeUser = await User.findById(targetAssigneeId)
-            .select('name email telegramSettings')
-            .lean();
-
-          if (assigneeUser?.telegramSettings?.enabled) {
-            await notifyTaskEventOnTelegram({
-              recipientUser: assigneeUser,
-              task: populatedTask,
-              eventType: 'assigned',
-              actorName: user.name,
-            });
-          }
-
-          if (user?.telegramSettings?.enabled && user?.telegramSettings?.notifyOnCreated) {
-            await notifyTaskEventOnTelegram({
-              recipientUser: user,
-              task: populatedTask,
-              eventType: 'created',
-              actorName: user.name,
-            });
+            if (assigneeUser?.telegramSettings?.enabled) {
+              await notifyTaskEventOnTelegram({
+                recipientUser: assigneeUser,
+                task: populatedTask,
+                eventType: 'assigned',
+                actorName: user.name,
+              });
+            }
           }
         }
       } catch (tgError) {
@@ -269,7 +268,20 @@ export const taskCrudService = {
     await verifyTaskUpdateAccess(task, user.id, updates);
 
     const previousStatus = task.status;
-    const previousAssignee = task.assignedTo?.toString();
+    const previousAssignees = (Array.isArray(task.assignedTo)
+      ? task.assignedTo
+      : task.assignedTo ? [task.assignedTo] : []).map((a) => a?.toString());
+
+    // Normalize updates.assignedTo if provided
+    if (updates.assignedTo !== undefined) {
+      if (Array.isArray(updates.assignedTo)) {
+        updates.assignedTo = [...new Set(updates.assignedTo.filter(Boolean))];
+      } else if (updates.assignedTo) {
+        updates.assignedTo = [updates.assignedTo];
+      } else {
+        updates.assignedTo = [];
+      }
+    }
 
     // Apply allowed updates
     Object.assign(task, updates);
@@ -293,7 +305,7 @@ export const taskCrudService = {
         });
       }
 
-      if (updates.assignedTo && updates.assignedTo.toString() !== previousAssignee) {
+      if (updates.assignedTo) {
         await ActivityLog.create({
           organizationId: task.organizationId,
           taskId: task._id,
@@ -304,16 +316,58 @@ export const taskCrudService = {
       }
     }
 
+    // Asynchronous Telegram Notification on assignment change
+    if (updates.assignedTo) {
+      (async () => {
+        try {
+          const newAssignees = updates.assignedTo.map((a) => a.toString());
+          const newlyAssigned = newAssignees.filter(
+            (id) => !previousAssignees.includes(id) && id !== user._id.toString()
+          );
+
+          for (const newId of newlyAssigned) {
+            const recipient = await User.findById(newId)
+              .select('name email telegramSettings')
+              .lean();
+
+            if (recipient?.telegramSettings?.enabled) {
+              await notifyTaskEventOnTelegram({
+                recipientUser: recipient,
+                task: updatedTask,
+                eventType: 'assigned',
+                actorName: user.name,
+              });
+            }
+          }
+        } catch (tgError) {
+          console.error(
+            '[TelegramNotification] Failed to send on assignment update:',
+            tgError.message
+          );
+        }
+      })();
+    }
+
     // Asynchronous Telegram Notification on status update (Non-blocking)
     if (updates.status && updates.status !== previousStatus) {
       (async () => {
         try {
-          const targetUserId = task.assignedTo || task.createdBy;
-          if (targetUserId) {
+          const assignees = Array.isArray(task.assignedTo)
+            ? task.assignedTo
+            : task.assignedTo ? [task.assignedTo] : [];
+          const recipientIds = [
+            ...new Set(
+              [...assignees, task.createdBy]
+                .filter(Boolean)
+                .map((id) => id.toString())
+            ),
+          ];
+
+          for (const recipientId of recipientIds) {
             const recipient =
-              targetUserId.toString() === user._id.toString()
+              recipientId === user._id.toString()
                 ? user
-                : await User.findById(targetUserId)
+                : await User.findById(recipientId)
                     .select('name email telegramSettings')
                     .lean();
 

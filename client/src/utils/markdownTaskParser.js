@@ -201,8 +201,11 @@ export const generateMarkdownFromTasks = (tasks = [], lang = 'fa') => {
         lines.push(`- موعد: ${d}`);
       }
 
-      if (task.assignedTo?.name) {
-        lines.push(`- مسئول: ${task.assignedTo.name}`);
+      const assignees = Array.isArray(task.assignedTo)
+        ? task.assignedTo
+        : task.assignedTo ? [task.assignedTo] : [];
+      if (assignees.length > 0) {
+        lines.push(`- مسئول: ${assignees.map((a) => a?.name).filter(Boolean).join('، ')}`);
       }
 
       if (task.totalTimeSpent > 0) {
@@ -278,7 +281,12 @@ export const generateCSVFromTasks = (tasks = []) => {
       escapeCSV(statusMap[task.status] || task.status),
       escapeCSV(priorityMap[task.priority] || task.priority),
       escapeCSV(task.categoryId?.name || 'بدون دسته'),
-      escapeCSV(task.assignedTo?.name || 'تخصیص‌نیافته'),
+      escapeCSV(
+        (Array.isArray(task.assignedTo) ? task.assignedTo : task.assignedTo ? [task.assignedTo] : [])
+          .map((a) => a?.name)
+          .filter(Boolean)
+          .join('، ') || 'تخصیص‌نیافته'
+      ),
       escapeCSV(minutes),
       escapeCSV(due),
       escapeCSV(totalSub),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Trash2, MessageSquare, AlertCircle } from 'lucide-react';
+import { X, Send, Trash2, MessageSquare, AlertCircle, Bell, BellOff, Loader2 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
@@ -16,6 +16,9 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [canMute, setCanMute] = useState(false);
+  const [mutingLoading, setMutingLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -25,6 +28,8 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
       setComments([]);
       setNewComment('');
       setError('');
+      setIsMuted(false);
+      setCanMute(false);
     }
   }, [isOpen, task]);
 
@@ -35,11 +40,28 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
       const res = await api.get(`/tasks/${task._id}/comments`);
       if (res.data?.success) {
         setComments(res.data.data.comments || []);
+        setIsMuted(Boolean(res.data.data.meta?.isMuted));
+        setCanMute(Boolean(res.data.data.meta?.canMute));
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load comments');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!task?._id || mutingLoading) return;
+    setMutingLoading(true);
+    try {
+      const res = await api.post(`/tasks/${task._id}/comments/toggle-mute`);
+      if (res.data?.success) {
+        setIsMuted(res.data.data.isMuted);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update notification preference');
+    } finally {
+      setMutingLoading(false);
     }
   };
 
@@ -57,6 +79,7 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
       if (res.data?.success && res.data.data.comment) {
         setComments((prev) => [...prev, res.data.data.comment]);
         setNewComment('');
+        setIsMuted(false);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to post comment');
@@ -120,13 +143,46 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
               <p className="text-[11px] text-slate-400 truncate">{t('commentsDesc')}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 ms-2"
-            title={t('close')}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0 ms-2">
+            {canMute && (
+              <button
+                type="button"
+                onClick={handleToggleMute}
+                disabled={mutingLoading}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${
+                  isMuted
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title={
+                  isMuted
+                    ? (lang === 'fa' ? 'اعلان‌های تلگرام برای شما بی‌صدا است. جهت فعال‌سازی کلیک کنید' : 'Notifications muted. Click to resume')
+                    : (lang === 'fa' ? 'جهت بی‌صدا کردن اعلان‌های این گفت‌وگو کلیک کنید' : 'Click to mute thread notifications')
+                }
+              >
+                {mutingLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : isMuted ? (
+                  <>
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>{lang === 'fa' ? 'فعال‌سازی اعلان‌ها' : 'Unmute'}</span>
+                  </>
+                ) : (
+                  <>
+                    <BellOff className="w-3.5 h-3.5" />
+                    <span>{lang === 'fa' ? 'بی‌صدا کردن این گفت‌وگو' : 'Mute Thread'}</span>
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title={t('close')}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {error && (

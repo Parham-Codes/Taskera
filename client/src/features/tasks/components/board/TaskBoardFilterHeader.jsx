@@ -13,10 +13,10 @@ export const TaskBoardFilterHeader = ({
   const FilterIcon = filterMeta.icon;
 
   return (
-    <div className="p-4 rounded-3xl glass-panel border border-slate-200/90 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+    <div className="p-4 rounded-2xl glass-panel border border-slate-200/90 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-xs">
       <div className="flex items-center gap-3">
         <div
-          className={`w-9 h-9 rounded-2xl flex items-center justify-center border ${filterMeta.color}`}
+          className={`w-9 h-9 rounded-xl flex items-center justify-center border ${filterMeta.color}`}
         >
           {FilterIcon && <FilterIcon className="w-5 h-5" />}
         </div>

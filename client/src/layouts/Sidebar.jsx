@@ -287,25 +287,65 @@ export const Sidebar = ({
                 </button>
               );
             })}
+          </div>
 
-            {/* Categories Quick Access Button */}
-            {onOpenCategoryManager && (
-              <button
-                onClick={() => {
-                  onClose?.();
-                  onOpenCategoryManager();
-                }}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-2xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition-all border border-dashed border-slate-300 dark:border-slate-800 mt-2"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Tag className="w-4 h-4 text-brand-500" />
-                  <span>{t('categories')}</span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-brand-500/10 text-brand-600 dark:text-brand-400">
-                  {categories.length}
-                </span>
-              </button>
-            )}
+          {/* Categories Section */}
+          <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                {t('categories')} ({categories.length})
+              </span>
+              {onOpenCategoryManager && (
+                <button
+                  onClick={onOpenCategoryManager}
+                  className="p-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
+                  title={t('manageCategories')}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              {categories.map((cat) => {
+                const isActive = activeFilter === `cat:${cat._id}`;
+                return (
+                  <button
+                    key={cat._id}
+                    onClick={() => {
+                      onFilterChange(`cat:${cat._id}`);
+                      onClose?.();
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/20'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                        style={{ backgroundColor: cat.color || '#4F5AE4' }}
+                      />
+                      <span className="truncate">{cat.name}</span>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {onOpenCategoryManager && (
+                <button
+                  onClick={() => {
+                    onClose?.();
+                    onOpenCategoryManager();
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-semibold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 border border-dashed border-brand-500/30 hover:border-brand-500/60 transition-all mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{lang === 'fa' ? 'افزودن دسته‌بندی' : 'Add Category'}</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Team Members Section (only if inside Organization Workspace) */}

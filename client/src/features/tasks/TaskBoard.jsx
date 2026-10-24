@@ -63,11 +63,21 @@ export const TaskBoard = ({
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverColumnId, setDragOverColumnId] = useState(null);
 
-  // Sync externalDetailTaskId from header notification click
+  // Sync externalDetailTaskId from header notification click or deep link URL query param
   useEffect(() => {
     if (externalDetailTaskId) {
       setActiveDetailTaskId(externalDetailTaskId);
       onClearExternalDetailTaskId?.();
+    } else {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const taskIdFromUrl = params.get('task');
+        if (taskIdFromUrl) {
+          setActiveDetailTaskId(taskIdFromUrl);
+        }
+      } catch {
+        // safe fallback
+      }
     }
   }, [externalDetailTaskId, onClearExternalDetailTaskId]);
 
@@ -151,9 +161,12 @@ export const TaskBoard = ({
             inProgress: fetchedTasks.filter(
               (t) => t.status === 'in-progress' || t.status === 'review'
             ).length,
-            myTasks: fetchedTasks.filter(
-              (t) => (t.assignedTo?._id || t.assignedTo) === user?.id
-            ).length,
+            myTasks: fetchedTasks.filter((t) => {
+              const assignees = Array.isArray(t.assignedTo)
+                ? t.assignedTo
+                : t.assignedTo ? [t.assignedTo] : [];
+              return assignees.some((a) => String(a?._id || a) === String(user?.id));
+            }).length,
             dueSoon: fetchedTasks.filter((t) => {
               if (!t.dueDate || t.status === 'completed') return false;
               const due = new Date(t.dueDate).getTime();
@@ -195,14 +208,21 @@ export const TaskBoard = ({
       if (sidebarFilter === 'in-progress') {
         if (task.status !== 'in-progress' && task.status !== 'review') return false;
       } else if (sidebarFilter === 'my-tasks') {
-        const assigneeId = task.assignedTo?._id || task.assignedTo;
-        if (assigneeId !== user?.id) return false;
+        const assignees = Array.isArray(task.assignedTo)
+          ? task.assignedTo
+          : task.assignedTo ? [task.assignedTo] : [];
+        const isMine = assignees.some((a) => String(a?._id || a) === String(user?.id));
+        if (!isMine) return false;
       } else if (sidebarFilter === 'due-soon') {
         if (!task.dueDate || task.status === 'completed') return false;
         const due = new Date(task.dueDate).getTime();
         if (due > Date.now() + 3 * 24 * 60 * 60 * 1000) return false;
       } else if (sidebarFilter === 'completed') {
         if (task.status !== 'completed') return false;
+      } else if (sidebarFilter?.startsWith('cat:')) {
+        const targetCatId = sidebarFilter.replace('cat:', '');
+        const catId = task.categoryId?._id || task.categoryId;
+        if (String(catId) !== String(targetCatId)) return false;
       }
 
       // 2. Priority Filter from Header
@@ -330,10 +350,12 @@ export const TaskBoard = ({
           inProgress: nextTasks.filter(
             (t) => t.status === 'in-progress' || t.status === 'review'
           ).length,
-          myTasks: nextTasks.filter(
-            (t) =>
-              String(t.assignedTo?._id || t.assignedTo) === String(user?.id)
-          ).length,
+          myTasks: nextTasks.filter((t) => {
+            const assignees = Array.isArray(t.assignedTo)
+              ? t.assignedTo
+              : t.assignedTo ? [t.assignedTo] : [];
+            return assignees.some((a) => String(a?._id || a) === String(user?.id));
+          }).length,
           dueSoon: nextTasks.filter((t) => {
             if (!t.dueDate || t.status === 'completed') return false;
             const due = new Date(t.dueDate).getTime();

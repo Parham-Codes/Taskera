@@ -22,7 +22,7 @@ export const TaskModal = ({
   const [priority, setPriority] = useState('medium');
   const [status, setStatus] = useState('todo');
   const [dueDate, setDueDate] = useState('');
-  const [assignedTo, setAssignedTo] = useState('');
+  const [assignedTo, setAssignedTo] = useState([]);
   const [categoryId, setCategoryId] = useState('');
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -36,7 +36,18 @@ export const TaskModal = ({
       setPriority(initialTask.priority || 'medium');
       setStatus(initialTask.status || 'todo');
       setDueDate(initialTask.dueDate ? initialTask.dueDate.split('T')[0] : '');
-      setAssignedTo(initialTask.assignedTo?._id || initialTask.assignedTo || '');
+      
+      let initialAssignees = [];
+      if (Array.isArray(initialTask.assignedTo)) {
+        initialAssignees = initialTask.assignedTo
+          .map((a) => (a?._id ? a._id.toString() : a?.toString()))
+          .filter(Boolean);
+      } else if (initialTask.assignedTo) {
+        const id = initialTask.assignedTo?._id || initialTask.assignedTo;
+        if (id) initialAssignees = [id.toString()];
+      }
+      setAssignedTo(initialAssignees);
+
       setCategoryId(initialTask.categoryId?._id || initialTask.categoryId || '');
       setSubtasks(initialTask.subtasks || []);
     } else {
@@ -45,7 +56,7 @@ export const TaskModal = ({
       setPriority('medium');
       setStatus('todo');
       setDueDate(defaultDueDate || '');
-      setAssignedTo('');
+      setAssignedTo([]);
       setCategoryId('');
       setSubtasks([]);
     }
@@ -80,7 +91,7 @@ export const TaskModal = ({
         status,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
         organizationId: activeWorkspace?.id || null,
-        assignedTo: activeWorkspace?.id && assignedTo ? assignedTo : null,
+        assignedTo: activeWorkspace?.id ? assignedTo : [],
         categoryId: categoryId || null,
         subtasks,
       };
@@ -103,7 +114,7 @@ export const TaskModal = ({
       maxWidth="max-w-lg"
     >
       {error && (
-        <div className="mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+        <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -121,7 +132,7 @@ export const TaskModal = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t('taskTitlePlaceholder')}
-            className="w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-slate-900 dark:text-white"
+            className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-slate-900 dark:text-white"
           />
         </div>
 
@@ -135,7 +146,7 @@ export const TaskModal = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('descriptionPlaceholder')}
-            className="w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all resize-none text-slate-900 dark:text-white"
+            className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all resize-none text-slate-900 dark:text-white"
           />
         </div>
 
@@ -161,7 +172,7 @@ export const TaskModal = ({
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
               >
                 <option value="">{t('noCategory')}</option>
                 {categories.map((c) => (
@@ -183,7 +194,7 @@ export const TaskModal = ({
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
+                className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
               >
                 <option value="low">{t('lowPriority')}</option>
                 <option value="medium">{t('mediumPriority')}</option>
@@ -207,32 +218,89 @@ export const TaskModal = ({
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 onClick={(e) => e.target.showPicker?.()}
-                className="w-full px-3.5 py-2.5 pe-10 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all cursor-pointer text-slate-900 dark:text-white"
+                className="w-full px-3.5 py-2.5 pe-10 rounded-xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all cursor-pointer text-slate-900 dark:text-white"
               />
               <Calendar className="w-4 h-4 text-brand-500 dark:text-brand-400 absolute end-3.5 top-3 pointer-events-none" />
             </div>
           </div>
 
-          {/* Team Assignee (Only in Organization space) */}
+          {/* Team Assignees (Only in Organization space) */}
           {activeWorkspace?.id ? (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                {t('assigneeLabel')} ({activeWorkspace.name})
-              </label>
-              <div className="relative">
-                <select
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
-                >
-                  <option value="">{t('unassigned')}</option>
-                  {members.map((m) => (
-                    <option key={m.userId?._id || m.userId} value={m.userId?._id || m.userId}>
-                      {m.userId?.name} ({m.role})
-                    </option>
-                  ))}
-                </select>
-                <User className="w-4 h-4 text-slate-400 absolute end-3 top-3 pointer-events-none" />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  {t('assigneeLabel')} ({assignedTo.length})
+                </label>
+                {members.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allIds = members
+                        .map((m) => (m.id || m.userId?._id || m.userId)?.toString())
+                        .filter(Boolean);
+                      setAssignedTo((prev) =>
+                        prev.length === allIds.length ? [] : allIds
+                      );
+                    }}
+                    className="text-[10px] text-brand-600 dark:text-brand-400 font-semibold hover:underline"
+                  >
+                    {assignedTo.length === members.length
+                      ? (lang === 'fa' ? 'حذف همه' : 'Clear all')
+                      : (lang === 'fa' ? 'انتخاب همه' : 'Select all')}
+                  </button>
+                )}
+              </div>
+
+              {/* Multi-Assignee Selection List */}
+              <div className="p-2 rounded-xl glass-input max-h-36 overflow-y-auto space-y-1">
+                {members.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 p-2 text-center">
+                    {lang === 'fa' ? 'عضوی در این سازمان یافت نشد' : 'No members found'}
+                  </p>
+                ) : (
+                  members.map((m) => {
+                    const mId = (m.id || m.userId?._id || m.userId)?.toString();
+                    const mName = m.name || m.userId?.name || 'Member';
+                    const mRole = m.role || 'member';
+                    const isSelected = assignedTo.includes(mId);
+
+                    return (
+                      <button
+                        key={mId}
+                        type="button"
+                        onClick={() => {
+                          setAssignedTo((prev) =>
+                            isSelected ? prev.filter((id) => id !== mId) : [...prev, mId]
+                          );
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                          isSelected
+                            ? 'bg-brand-500/15 text-brand-600 dark:text-brand-400 font-bold border border-brand-500/30'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <div className="w-5 h-5 rounded-md bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {mName[0]?.toUpperCase()}
+                          </div>
+                          <span className="truncate">{mName}</span>
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200/60 dark:bg-slate-800 text-slate-500">
+                            {mRole}
+                          </span>
+                        </div>
+                        <div
+                          className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                            isSelected
+                              ? 'bg-brand-500 border-brand-500 text-white'
+                              : 'border-slate-300 dark:border-slate-600'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3" />}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           ) : (
@@ -244,7 +312,7 @@ export const TaskModal = ({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm glass-input focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all appearance-none cursor-pointer text-slate-900 dark:text-white"
                 >
                   <option value="todo">{t('todo')}</option>
                   <option value="in-progress">{t('inProgress')}</option>

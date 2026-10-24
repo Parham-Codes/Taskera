@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: true,
       },
+      notifyOnComments: {
+        type: Boolean,
+        default: true,
+      },
     },
     timezone: {
       type: String,

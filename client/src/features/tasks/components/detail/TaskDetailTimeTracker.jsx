@@ -20,7 +20,7 @@ export const TaskDetailTimeTracker = ({
   const completedLogs = (task.timeLogs || []).filter((l) => l.endTime);
 
   return (
-    <div className="glass-panel rounded-3xl p-4 sm:p-5 border border-brand-500/30 relative overflow-hidden space-y-4 shadow-sm">
+    <div className="glass-panel rounded-2xl p-4 sm:p-5 border border-brand-500/30 relative overflow-hidden space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div

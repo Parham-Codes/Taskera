@@ -98,16 +98,19 @@ export const verifyTaskUpdateAccess = async (task, userId, updates = {}) => {
   const creatorId = task.createdBy?._id
     ? task.createdBy._id.toString()
     : task.createdBy?.toString();
+  const isCreator = creatorId === userIdStr;
 
   if (task.organizationId) {
     const membership = await verifyOrgMembership(task.organizationId, userId);
 
     const isManagerOrOwner = [ORG_ROLES.OWNER, ORG_ROLES.MANAGER].includes(membership.role);
-    const isCreator = creatorId === userIdStr;
-    const assigneeId = task.assignedTo?._id
-      ? task.assignedTo._id.toString()
-      : task.assignedTo?.toString();
-    const isAssignee = assigneeId && assigneeId === userIdStr;
+    const assignees = Array.isArray(task.assignedTo)
+      ? task.assignedTo
+      : task.assignedTo ? [task.assignedTo] : [];
+    const isAssignee = assignees.some((a) => {
+      const id = a?._id ? a._id.toString() : a?.toString();
+      return id === userIdStr;
+    });
 
     if (!isManagerOrOwner && !isCreator) {
       // Regular members can only update task status of their assigned tasks
@@ -126,18 +129,30 @@ export const verifyTaskUpdateAccess = async (task, userId, updates = {}) => {
 
   // Verify assignee membership if assignedTo is being updated
   if (updates.assignedTo) {
-    const newAssigneeStr = updates.assignedTo.toString();
-    if (task.organizationId) {
-      const assigneeMembership = await OrganizationMember.findOne({
-        organizationId: task.organizationId,
-        userId: updates.assignedTo,
-      }).lean();
+    const rawList = Array.isArray(updates.assignedTo)
+      ? updates.assignedTo
+      : [updates.assignedTo];
+    const cleanList = rawList.filter(Boolean);
 
-      if (!assigneeMembership) {
-        throw new TaskError('Assigned user is not a member of this organization', 400);
+    if (task.organizationId) {
+      for (const targetId of cleanList) {
+        const assigneeMembership = await OrganizationMember.findOne({
+          organizationId: task.organizationId,
+          userId: targetId,
+        }).lean();
+
+        if (!assigneeMembership) {
+          throw new TaskError(
+            'Assigned user is not a member of this organization',
+            400
+          );
+        }
       }
-    } else if (newAssigneeStr !== userIdStr) {
-      throw new TaskError('Personal tasks cannot be assigned to another user', 400);
+    } else {
+      const isOnlySelf = cleanList.every((id) => id.toString() === userIdStr);
+      if (!isOnlySelf) {
+        throw new TaskError('Personal tasks cannot be assigned to another user', 400);
+      }
     }
   }
 };

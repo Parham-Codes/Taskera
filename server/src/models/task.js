@@ -57,10 +57,33 @@ const taskSchema = new mongoose.Schema(
       index: true,
     },
     assignedTo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-      index: true,
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          index: true,
+        },
+      ],
+      default: [],
+      set: (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(Boolean);
+        return [val];
+      },
+    },
+    commentMutedUsers: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+      ],
+      default: [],
+      set: (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(Boolean);
+        return [val];
+      },
     },
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,

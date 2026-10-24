@@ -37,7 +37,7 @@ export const Modal = ({
       }}
     >
       <div
-        className={`w-full ${maxWidth} max-h-[88vh] my-auto flex flex-col bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-6 relative animate-in zoom-in-95 duration-200`}
+        className={`w-full ${maxWidth} max-h-[88vh] my-auto flex flex-col bg-white dark:bg-slate-900 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-6 relative animate-in zoom-in-95 duration-200`}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-slate-200/60 dark:border-slate-800 shrink-0">

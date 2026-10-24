@@ -48,54 +48,66 @@ export const findEligibleReminders = async (referenceDate = new Date()) => {
   const eligibleItems = [];
 
   for (const task of activeTasks) {
-    // Recipient rule: Assigned member has precedence; fallback to task creator
-    const recipientUser = task.assignedTo || task.createdBy;
-    if (!recipientUser || !recipientUser._id) {
-      continue;
+    // Recipient rule: Assigned members have precedence; fallback to task creator
+    const rawAssignees = Array.isArray(task.assignedTo)
+      ? task.assignedTo
+      : task.assignedTo ? [task.assignedTo] : [];
+    const validAssignees = rawAssignees.filter((a) => a && a._id);
+    const recipients =
+      validAssignees.length > 0
+        ? validAssignees
+        : task.createdBy && task.createdBy._id
+        ? [task.createdBy]
+        : [];
+
+    for (const recipientUser of recipients) {
+      if (!recipientUser || !recipientUser._id) {
+        continue;
+      }
+
+      const recipientTimezone = recipientUser.timezone || 'UTC';
+      const localInfo = getLocalTimeInfo(referenceDate, recipientTimezone);
+
+      // Reminders must only be dispatched at or after 09:00 local time
+      if (localInfo.hour < 9) {
+        continue;
+      }
+
+      const taskDueDateKey = getTaskDueDateKey(task.dueDate);
+      if (!taskDueDateKey) {
+        continue;
+      }
+
+      const todayDateKey = localInfo.dateKey;
+      const tomorrowDateKey = addDaysToDateKey(todayDateKey, 1);
+
+      let stage = null;
+      if (taskDueDateKey === todayDateKey) {
+        stage = REMINDER_STAGES.DUE_TODAY;
+      } else if (taskDueDateKey === tomorrowDateKey) {
+        stage = REMINDER_STAGES.DAY_BEFORE;
+      }
+
+      // If task is not due today or tomorrow, it is either overdue or in the future
+      if (!stage) {
+        continue;
+      }
+
+      const dedupeKey = buildDedupeKey(
+        task._id,
+        recipientUser._id,
+        taskDueDateKey,
+        stage
+      );
+
+      eligibleItems.push({
+        task,
+        recipientUser,
+        reminderStage: stage,
+        dueDateKey: taskDueDateKey,
+        dedupeKey,
+      });
     }
-
-    const recipientTimezone = recipientUser.timezone || 'UTC';
-    const localInfo = getLocalTimeInfo(referenceDate, recipientTimezone);
-
-    // Reminders must only be dispatched at or after 09:00 local time
-    if (localInfo.hour < 9) {
-      continue;
-    }
-
-    const taskDueDateKey = getTaskDueDateKey(task.dueDate);
-    if (!taskDueDateKey) {
-      continue;
-    }
-
-    const todayDateKey = localInfo.dateKey;
-    const tomorrowDateKey = addDaysToDateKey(todayDateKey, 1);
-
-    let stage = null;
-    if (taskDueDateKey === todayDateKey) {
-      stage = REMINDER_STAGES.DUE_TODAY;
-    } else if (taskDueDateKey === tomorrowDateKey) {
-      stage = REMINDER_STAGES.DAY_BEFORE;
-    }
-
-    // If task is not due today or tomorrow, it is either overdue or in the future
-    if (!stage) {
-      continue;
-    }
-
-    const dedupeKey = buildDedupeKey(
-      task._id,
-      recipientUser._id,
-      taskDueDateKey,
-      stage
-    );
-
-    eligibleItems.push({
-      task,
-      recipientUser,
-      reminderStage: stage,
-      dueDateKey: taskDueDateKey,
-      dedupeKey,
-    });
   }
 
   return eligibleItems;
