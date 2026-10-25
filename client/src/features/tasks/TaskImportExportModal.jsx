@@ -94,7 +94,7 @@ export const TaskImportExportModal = ({
     try {
       const res = await api.post('/tasks/batch', {
         tasks: parsedPreviewTasks,
-        organizationId: activeWorkspace?.id || null,
+        organizationId: (activeWorkspace?.id || activeWorkspace?._id) || null,
       });
 
       if (res.data?.success) {

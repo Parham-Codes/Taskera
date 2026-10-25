@@ -143,8 +143,9 @@ export const TaskBoard = ({
     setLoading(true);
     try {
       const params = { limit: 100 };
-      if (activeWorkspace?.id) {
-        params.organizationId = activeWorkspace.id;
+      const orgId = activeWorkspace?.id || activeWorkspace?._id;
+      if (orgId) {
+        params.organizationId = orgId;
       }
 
       const res = await api.get('/tasks', { params });
@@ -156,6 +157,7 @@ export const TaskBoard = ({
         // Compute stable counts for sidebar
         if (onTaskCountsUpdate) {
           const now = Date.now();
+          const currentUserId = String(user?.id || user?._id || '');
           const counts = {
             all: fetchedTasks.length,
             inProgress: fetchedTasks.filter(
@@ -165,7 +167,7 @@ export const TaskBoard = ({
               const assignees = Array.isArray(t.assignedTo)
                 ? t.assignedTo
                 : t.assignedTo ? [t.assignedTo] : [];
-              return assignees.some((a) => String(a?._id || a) === String(user?.id));
+              return assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
             }).length,
             dueSoon: fetchedTasks.filter((t) => {
               if (!t.dueDate || t.status === 'completed') return false;
@@ -182,7 +184,7 @@ export const TaskBoard = ({
     } finally {
       setLoading(false);
     }
-  }, [activeWorkspace?.id, user?.id, onTaskCountsUpdate, onTasksUpdate]);
+  }, [activeWorkspace?.id, activeWorkspace?._id, user?.id, user?._id, onTaskCountsUpdate, onTasksUpdate]);
 
   useEffect(() => {
     fetchTasks();
@@ -211,7 +213,8 @@ export const TaskBoard = ({
         const assignees = Array.isArray(task.assignedTo)
           ? task.assignedTo
           : task.assignedTo ? [task.assignedTo] : [];
-        const isMine = assignees.some((a) => String(a?._id || a) === String(user?.id));
+        const currentUserId = String(user?.id || user?._id || '');
+        const isMine = assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
         if (!isMine) return false;
       } else if (sidebarFilter === 'due-soon') {
         if (!task.dueDate || task.status === 'completed') return false;
@@ -354,7 +357,8 @@ export const TaskBoard = ({
             const assignees = Array.isArray(t.assignedTo)
               ? t.assignedTo
               : t.assignedTo ? [t.assignedTo] : [];
-            return assignees.some((a) => String(a?._id || a) === String(user?.id));
+            const currentUserId = String(user?.id || user?._id || '');
+            return assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
           }).length,
           dueSoon: nextTasks.filter((t) => {
             if (!t.dueDate || t.status === 'completed') return false;

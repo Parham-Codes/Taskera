@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, Mail, Lock, User, AlertCircle, ArrowRight, Sun, Moon, Languages } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
@@ -8,8 +9,10 @@ export const AuthScreen = () => {
   const { login, register } = useAuth();
   const { theme, toggleTheme, animating } = useTheme();
   const { lang, toggleLang, t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [isRegister, setIsRegister] = useState(false);
+  const isRegister = location.pathname.endsWith('/register') || location.pathname === '/register';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +35,10 @@ export const AuthScreen = () => {
       } else {
         await login(email.trim(), password);
       }
+      const destination = location.state?.from
+        ? `${location.state.from.pathname}${location.state.from.search || ''}`
+        : '/personal';
+      navigate(destination, { replace: true });
     } catch (err) {
       // 1. Network Disconnect / Server is not running
       if (!err.response || err.code === 'ERR_NETWORK') {
@@ -120,8 +127,8 @@ export const AuthScreen = () => {
           <button
             type="button"
             onClick={() => {
-              setIsRegister(false);
               setError('');
+              navigate('/login', { replace: true, state: location.state });
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
               !isRegister
@@ -134,8 +141,8 @@ export const AuthScreen = () => {
           <button
             type="button"
             onClick={() => {
-              setIsRegister(true);
               setError('');
+              navigate('/register', { replace: true, state: location.state });
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
               isRegister

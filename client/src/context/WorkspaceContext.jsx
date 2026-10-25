@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from './AuthContext.jsx';
 
@@ -6,16 +7,21 @@ const WorkspaceContext = createContext();
 
 export const WorkspaceProvider = ({ children }) => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // null = Personal Space, or { id, name, slug, role } = Team Organization
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [workspaces, setWorkspaces] = useState([]);
   const [members, setMembers] = useState([]);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+  const [isUnauthorizedWorkspace, setIsUnauthorizedWorkspace] = useState(false);
 
   const fetchWorkspaces = useCallback(async () => {
     if (!user) {
       setWorkspaces([]);
       setActiveWorkspace(null);
+      setIsUnauthorizedWorkspace(false);
       return;
     }
 
@@ -51,33 +57,98 @@ export const WorkspaceProvider = ({ children }) => {
     fetchWorkspaces();
   }, [fetchWorkspaces]);
 
+  // Synchronize active workspace strictly with browser URL (URL as single source of truth)
   useEffect(() => {
-    if (activeWorkspace?.id) {
-      fetchMembers(activeWorkspace.id);
+    if (!user) {
+      setActiveWorkspace(null);
+      setIsUnauthorizedWorkspace(false);
+      return;
+    }
+
+    const pathname = location.pathname;
+
+    if (pathname === '/personal') {
+      setActiveWorkspace(null);
+      setIsUnauthorizedWorkspace(false);
+      return;
+    }
+
+    if (pathname.startsWith('/teams/')) {
+      const targetOrgId = pathname.replace('/teams/', '').split('/')[0];
+      if (!targetOrgId) {
+        setActiveWorkspace(null);
+        setIsUnauthorizedWorkspace(false);
+        return;
+      }
+
+      // Wait until workspaces finish loading before declaring unauthorized
+      if (loadingWorkspaces) {
+        return;
+      }
+
+      const match = workspaces.find((w) => String(w.id || w._id) === String(targetOrgId));
+      if (match) {
+        const normalized = {
+          ...match,
+          id: match.id || match._id,
+        };
+        setIsUnauthorizedWorkspace(false);
+        setActiveWorkspace((prev) => {
+          if (prev && String(prev.id || prev._id) === String(normalized.id)) {
+            return prev;
+          }
+          return normalized;
+        });
+      } else {
+        // User is not a member of this organization or it does not exist
+        setActiveWorkspace(null);
+        setIsUnauthorizedWorkspace(true);
+      }
+    } else {
+      setIsUnauthorizedWorkspace(false);
+    }
+  }, [location.pathname, workspaces, loadingWorkspaces, user]);
+
+  // Fetch members whenever active workspace changes
+  useEffect(() => {
+    const orgId = activeWorkspace?.id || activeWorkspace?._id;
+    if (orgId) {
+      fetchMembers(orgId);
     } else {
       setMembers([]);
     }
   }, [activeWorkspace, fetchMembers]);
 
-  const switchWorkspace = (workspaceOrNull) => {
-    setActiveWorkspace(workspaceOrNull);
-  };
+  // Navigate using React Router on workspace switch
+  const switchWorkspace = useCallback(
+    (workspaceOrNull) => {
+      if (!workspaceOrNull) {
+        navigate('/personal');
+      } else {
+        const orgId = workspaceOrNull.id || workspaceOrNull._id;
+        navigate(`/teams/${orgId}`);
+      }
+    },
+    [navigate]
+  );
 
   const createOrganization = async (name, description) => {
     const res = await api.post('/organizations', { name, description });
     if (res.data?.success) {
       await fetchWorkspaces();
       const newOrg = res.data.data.organization;
-      setActiveWorkspace(newOrg);
+      const orgId = newOrg.id || newOrg._id;
+      navigate(`/teams/${orgId}`);
     }
     return res.data;
   };
 
   const inviteMember = async (email, role) => {
-    if (!activeWorkspace?.id) return;
-    const res = await api.post(`/organizations/${activeWorkspace.id}/members`, { email, role });
+    const orgId = activeWorkspace?.id || activeWorkspace?._id;
+    if (!orgId) return;
+    const res = await api.post(`/organizations/${orgId}/members`, { email, role });
     if (res.data?.success) {
-      await fetchMembers(activeWorkspace.id);
+      await fetchMembers(orgId);
     }
     return res.data;
   };
@@ -89,6 +160,7 @@ export const WorkspaceProvider = ({ children }) => {
         workspaces,
         members,
         loadingWorkspaces,
+        isUnauthorizedWorkspace,
         switchWorkspace,
         createOrganization,
         inviteMember,
@@ -102,3 +174,4 @@ export const WorkspaceProvider = ({ children }) => {
 };
 
 export const useWorkspace = () => useContext(WorkspaceContext);
+

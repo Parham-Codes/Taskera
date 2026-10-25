@@ -79,7 +79,7 @@ export const InviteMemberModal = ({ isOpen, onClose }) => {
 
         <div>
           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-            {t('memberRoleLabel')} ({activeWorkspace.name})
+            {t('memberRoleLabel')} ({activeWorkspace?.name || ''})
           </label>
           <select
             value={role}

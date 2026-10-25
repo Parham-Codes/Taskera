@@ -84,17 +84,17 @@ export const TaskBadges = ({
               : ''
           }`}
           style={{
-            backgroundColor: `${task.categoryId.color || '#4F5AE4'}18`,
-            borderColor: `${task.categoryId.color || '#4F5AE4'}35`,
-            color: task.categoryId.color || '#4F5AE4',
+            backgroundColor: `${task.categoryId?.color || '#4F5AE4'}18`,
+            borderColor: `${task.categoryId?.color || '#4F5AE4'}35`,
+            color: task.categoryId?.color || '#4F5AE4',
           }}
         >
           <span
             className="w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: task.categoryId.color || '#4F5AE4' }}
+            style={{ backgroundColor: task.categoryId?.color || '#4F5AE4' }}
           />
           <span className={compact ? 'max-w-[70px] truncate' : ''}>
-            {task.categoryId.name}
+            {task.categoryId?.name || 'Category'}
           </span>
         </span>
       )}

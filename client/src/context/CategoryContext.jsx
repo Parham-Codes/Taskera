@@ -20,8 +20,9 @@ export const CategoryProvider = ({ children }) => {
     setLoading(true);
     try {
       const params = {};
-      if (activeWorkspace?.id) {
-        params.organizationId = activeWorkspace.id;
+      const orgId = activeWorkspace?.id || activeWorkspace?._id;
+      if (orgId) {
+        params.organizationId = orgId;
       }
       const res = await api.get('/categories', { params });
       if (res.data?.success) {
@@ -32,7 +33,7 @@ export const CategoryProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, activeWorkspace?.id]);
+  }, [user, activeWorkspace?.id, activeWorkspace?._id]);
 
   useEffect(() => {
     fetchCategories();
@@ -40,10 +41,11 @@ export const CategoryProvider = ({ children }) => {
 
   const createCategory = async (name, color = '#4F5AE4') => {
     try {
+      const orgId = activeWorkspace?.id || activeWorkspace?._id;
       const payload = {
         name: name.trim(),
         color,
-        organizationId: activeWorkspace?.id || null,
+        organizationId: orgId || null,
       };
       const res = await api.post('/categories', payload);
       if (res.data?.success) {

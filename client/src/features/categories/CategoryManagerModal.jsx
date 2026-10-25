@@ -66,7 +66,7 @@ export const CategoryManagerModal = ({ isOpen, onClose }) => {
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-brand-500" />
             <span className="font-semibold">
-              {activeWorkspace ? activeWorkspace.name : t('personalSpace')}
+              {activeWorkspace ? (activeWorkspace.name || 'Team Workspace') : t('personalSpace')}
             </span>
           </div>
           <span className="text-[11px] opacity-75">

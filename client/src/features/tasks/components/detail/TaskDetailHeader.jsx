@@ -24,16 +24,16 @@ export const TaskDetailHeader = ({
             <span
               className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1.5"
               style={{
-                backgroundColor: `${task.categoryId.color || '#4F5AE4'}18`,
-                borderColor: `${task.categoryId.color || '#4F5AE4'}35`,
-                color: task.categoryId.color || '#4F5AE4',
+                backgroundColor: `${task.categoryId?.color || '#4F5AE4'}18`,
+                borderColor: `${task.categoryId?.color || '#4F5AE4'}35`,
+                color: task.categoryId?.color || '#4F5AE4',
               }}
             >
               <span
                 className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: task.categoryId.color || '#4F5AE4' }}
+                style={{ backgroundColor: task.categoryId?.color || '#4F5AE4' }}
               />
-              <span>{task.categoryId.name}</span>
+              <span>{task.categoryId?.name || 'Category'}</span>
             </span>
           )}
 

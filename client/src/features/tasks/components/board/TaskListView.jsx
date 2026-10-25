@@ -69,12 +69,12 @@ export const TaskListView = ({
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0"
                       style={{
-                        borderColor: `${task.categoryId.color || '#4F5AE4'}40`,
-                        backgroundColor: `${task.categoryId.color || '#4F5AE4'}15`,
-                        color: task.categoryId.color || '#4F5AE4',
+                        borderColor: `${task.categoryId?.color || '#4F5AE4'}40`,
+                        backgroundColor: `${task.categoryId?.color || '#4F5AE4'}15`,
+                        color: task.categoryId?.color || '#4F5AE4',
                       }}
                     >
-                      {task.categoryId.name}
+                      {task.categoryId?.name || 'Category'}
                     </span>
                   )}
                 </div>

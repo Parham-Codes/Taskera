@@ -25,6 +25,7 @@ import { useWorkspace } from '../context/WorkspaceContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useNotifications } from '../context/NotificationContext.jsx';
 import { Modal } from '../components/ui/index.js';
+import { useLocation } from 'react-router-dom';
 
 export const Sidebar = ({
   isOpen,
@@ -43,6 +44,7 @@ export const Sidebar = ({
   const { t, lang } = useLanguage();
   const { unreadCount } = useNotifications();
   const { categories = [] } = useCategories();
+  const location = useLocation();
 
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -172,30 +174,36 @@ export const Sidebar = ({
                 </div>
 
                 {/* Personal Space */}
-                <button
-                  onClick={() => {
-                    switchWorkspace(null);
-                    setWorkspaceMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs text-start transition-colors ${
-                    activeWorkspace === null
-                      ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 font-bold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>{t('personalSpace')}</span>
-                  </div>
-                  {activeWorkspace === null && <Check className="w-3.5 h-3.5 text-brand-500" />}
-                </button>
+                {(() => {
+                  const isPersonalSelected = location.pathname === '/personal' || activeWorkspace === null;
+                  return (
+                    <button
+                      onClick={() => {
+                        switchWorkspace(null);
+                        setWorkspaceMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs text-start transition-colors ${
+                        isPersonalSelected
+                          ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 font-bold'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>{t('personalSpace')}</span>
+                      </div>
+                      {isPersonalSelected && <Check className="w-3.5 h-3.5 text-brand-500" />}
+                    </button>
+                  );
+                })()}
 
                 {/* Team Workspaces */}
                 {workspaces.map((org) => {
-                  const isSelected = activeWorkspace?.id === org.id;
+                  const orgId = org.id || org._id;
+                  const isSelected = location.pathname === `/teams/${orgId}` || (activeWorkspace?.id || activeWorkspace?._id) === orgId;
                   return (
                     <button
-                      key={org.id}
+                      key={orgId}
                       onClick={() => {
                         switchWorkspace(org);
                         setWorkspaceMenuOpen(false);
@@ -359,13 +367,13 @@ export const Sidebar = ({
           </div>
 
           {/* Team Members Section (only if inside Organization Workspace) */}
-          {activeWorkspace?.id && (
+          {(activeWorkspace?.id || activeWorkspace?._id) && (
             <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
               <div className="flex items-center justify-between px-3">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {t('teamMembers')} ({members.length})
+                  {t('teamMembers')} ({members?.length || 0})
                 </span>
-                {['owner', 'manager'].includes(activeWorkspace.role) && (
+                {['owner', 'manager'].includes(activeWorkspace?.role?.toLowerCase?.()) && (
                   <button
                     onClick={onOpenInviteMember}
                     className="p-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40"
@@ -377,24 +385,36 @@ export const Sidebar = ({
               </div>
 
               <div className="space-y-1">
-                {members.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between px-3 py-1.5 rounded-xl hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-6 h-6 rounded-lg bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold flex items-center justify-center shrink-0">
-                        {m.name[0].toUpperCase()}
+                {Array.isArray(members) && members.length > 0 ? (
+                  members.map((m, idx) => {
+                    const memberId = m?.id || m?._id || m?.userId || idx;
+                    const memberName = m?.name || m?.email?.split('@')[0] || 'Member';
+                    const initial = (m?.name?.[0] || m?.email?.[0] || 'U').toUpperCase();
+
+                    return (
+                      <div
+                        key={memberId}
+                        className="flex items-center justify-between px-3 py-1.5 rounded-xl hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {initial}
+                          </div>
+                          <span className="text-xs truncate text-slate-700 dark:text-slate-300">
+                            {memberName}
+                          </span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                          {m?.role || 'member'}
+                        </span>
                       </div>
-                      <span className="text-xs truncate text-slate-700 dark:text-slate-300">
-                        {m.name}
-                      </span>
-                    </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                      {m.role}
-                    </span>
-                  </div>
-                ))}
+                    );
+                  })
+                ) : (
+                  <p className="px-3 py-1 text-[11px] text-slate-400">
+                    {lang === 'fa' ? 'عضوی در این سازمان یافت نشد' : 'No team members yet'}
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -90,8 +90,8 @@ export const TaskModal = ({
         priority,
         status,
         dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-        organizationId: activeWorkspace?.id || null,
-        assignedTo: activeWorkspace?.id ? assignedTo : [],
+        organizationId: (activeWorkspace?.id || activeWorkspace?._id) || null,
+        assignedTo: (activeWorkspace?.id || activeWorkspace?._id) ? assignedTo : [],
         categoryId: categoryId || null,
         subtasks,
       };
@@ -225,7 +225,7 @@ export const TaskModal = ({
           </div>
 
           {/* Team Assignees (Only in Organization space) */}
-          {activeWorkspace?.id ? (
+          {(activeWorkspace?.id || activeWorkspace?._id) ? (
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
@@ -236,7 +236,7 @@ export const TaskModal = ({
                     type="button"
                     onClick={() => {
                       const allIds = members
-                        .map((m) => (m.id || m.userId?._id || m.userId)?.toString())
+                        .map((m) => (m.id || m._id || m.userId?._id || m.userId)?.toString())
                         .filter(Boolean);
                       setAssignedTo((prev) =>
                         prev.length === allIds.length ? [] : allIds
@@ -259,7 +259,7 @@ export const TaskModal = ({
                   </p>
                 ) : (
                   members.map((m) => {
-                    const mId = (m.id || m.userId?._id || m.userId)?.toString();
+                    const mId = (m.id || m._id || m.userId?._id || m.userId)?.toString();
                     const mName = m.name || m.userId?.name || 'Member';
                     const mRole = m.role || 'member';
                     const isSelected = assignedTo.includes(mId);
