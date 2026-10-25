@@ -118,10 +118,13 @@ export const taskCrudService = {
     // Asynchronous Telegram Notification dispatch (Non-blocking)
     (async () => {
       try {
-        const creatorIdStr = user._id.toString();
-        const freshCreator = await User.findById(user._id)
-          .select('name email telegramSettings')
-          .lean();
+        const creatorId = user?._id || user?.id;
+        const creatorIdStr = creatorId ? creatorId.toString() : '';
+        const freshCreator = creatorId
+          ? await User.findById(creatorId)
+              .select('name email telegramSettings')
+              .lean()
+          : user;
 
         const orgName = populatedTask.organizationId?.name || null;
 
@@ -130,13 +133,21 @@ export const taskCrudService = {
           freshCreator?.telegramSettings?.enabled &&
           freshCreator?.telegramSettings?.notifyOnCreated !== false
         ) {
-          await notifyTaskEventOnTelegram({
+          const res = await notifyTaskEventOnTelegram({
             recipientUser: freshCreator,
             task: populatedTask,
             eventType: 'created',
             actorName: freshCreator.name,
             organizationName: orgName,
           });
+          console.log('[TelegramNotification] Creator task-created event result:', res?.success ?? res?.reason);
+        } else {
+          console.log(
+            '[TelegramNotification] Creator task-created notification skipped. enabled:',
+            freshCreator?.telegramSettings?.enabled,
+            'notifyOnCreated:',
+            freshCreator?.telegramSettings?.notifyOnCreated
+          );
         }
 
         // 2. Notify Assignees (other than the creator) about their new assignment

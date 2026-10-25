@@ -370,16 +370,40 @@ export const sendTelegramMessage = async ({ botToken, chatId, message }) => {
 };
 
 /**
+ * Persian translations for task statuses and priorities
+ */
+const STATUS_LABELS_FA = {
+  todo: 'در انتظار انجام',
+  'in-progress': 'در حال انجام',
+  review: 'در حال بررسی',
+  completed: 'تکمیل شده',
+};
+
+const formatStatusFA = (status) => {
+  if (!status) return '';
+  return STATUS_LABELS_FA[status] || status;
+};
+
+const PRIORITY_BADGES_FA = {
+  urgent: '🔴 فوری (Urgent)',
+  high: '🟠 بالا (High)',
+  low: '🟢 پایین (Low)',
+  medium: '🔵 متوسط (Medium)',
+};
+
+/**
  * Send a verification/test message to confirm telegram credentials
  */
 export const sendTelegramTestMessage = async ({ botToken, chatId, userName }) => {
+  const dateStr = new Date().toLocaleString('fa-IR');
   const message = [
     `🚀 <b>اتصال با موفقیت برقرار شد!</b>`,
-    `سلام ${escapeHtml(userName || 'کاربر گرامی')} 👋`,
     ``,
-    `تنظیمات ربات تلگرام تسکرا شما با موفقیت ثبت شد. از این پس اعلان‌های مربوط به تسک‌های شما فوراً از این طریق برای شما ارسال خواهد شد.`,
+    `<blockquote>سلام ${escapeHtml(userName || 'کاربر')} گرامی 👋`,
+    `ربات تلگرام Taskera به حساب کاربری شما متصل شد. از این پس اعلان‌های ایجاد تسک، تخصیص وظایف، تغییر وضعیت و نظرات را فوراً در این صفحه دریافت خواهید کرد.</blockquote>`,
     ``,
-    `📅 زمان تست: ${new Date().toLocaleString('fa-IR')}`,
+    `───────────────`,
+    `🕒 <i>${dateStr}</i> • <b>Taskera</b>`,
   ].join('\n');
 
   return sendTelegramMessage({ botToken, chatId, message });
@@ -466,57 +490,67 @@ export const notifyTaskEventOnTelegram = async ({
     return { skipped: true, reason: 'EVENT_MUTED' };
   }
 
-  let headerTitle = '📝 <b>تسک جدید ایجاد شد</b>';
-  let eventDetail = '';
-
-  if (eventType === 'assigned') {
-    headerTitle = '🎯 <b>تسک جدید به شما محول شد!</b>';
-    eventDetail = `👤 <b>محول‌کننده:</b> ${escapeHtml(actorName || 'همکار')}\n`;
-  } else if (eventType === 'status_changed') {
-    headerTitle = '🔄 <b>تغییر وضعیت تسک</b>';
-    eventDetail = `👤 <b>توسط:</b> ${escapeHtml(actorName || 'کاربر')}\n📊 <b>از:</b> <code>${escapeHtml(oldStatus || '')}</code> ⬅️ <b>به:</b> <code>${escapeHtml(newStatus || '')}</code>\n`;
-  } else {
-    eventDetail = actorName ? `👤 <b>سازنده:</b> ${escapeHtml(actorName)}\n` : '';
-  }
-
-  const priorityBadge =
-    task.priority === 'urgent'
-      ? '🔴 فوری (Urgent)'
-      : task.priority === 'high'
-      ? '🟠 بالا (High)'
-      : task.priority === 'low'
-      ? '🟢 پایین (Low)'
-      : '🔵 متوسط (Medium)';
-
+  const priorityBadge = PRIORITY_BADGES_FA[task.priority] || '🔵 متوسط (Medium)';
   const formattedDueDate = task.dueDate
     ? new Date(task.dueDate).toLocaleDateString('fa-IR')
     : 'بدون موعد مشخص';
 
   const workspaceInfo = resolveWorkspaceDetails({ task, organizationName, clientUrl });
+  const dateStr = new Date().toLocaleString('fa-IR');
 
-  const messageLines = [
-    headerTitle,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
-    eventDetail.trim(),
-    `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
-    `⚡ <b>اولویت:</b> ${priorityBadge}`,
-    `📅 <b>موعد انجام:</b> ${formattedDueDate}`,
-  ];
+  let messageLines = [];
+
+  if (eventType === 'assigned') {
+    messageLines = [
+      `🎯 <b>تسک جدید به شما محول شد!</b>`,
+      ``,
+      `<blockquote>📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+      `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
+      `⚡ <b>اولویت:</b> ${priorityBadge}`,
+      `📅 <b>موعد انجام:</b> <code>${formattedDueDate}</code>`,
+      `👤 <b>محول‌کننده:</b> ${escapeHtml(actorName || 'همکار')}</blockquote>`,
+    ];
+  } else if (eventType === 'status_changed') {
+    const oldLabel = formatStatusFA(oldStatus);
+    const newLabel = formatStatusFA(newStatus);
+    messageLines = [
+      `🔄 <b>تغییر وضعیت تسک</b>`,
+      ``,
+      `<blockquote>📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+      `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
+      `📊 <b>وضعیت:</b> <code>${escapeHtml(oldLabel)}</code> ➔ <code>${escapeHtml(newLabel)}</code>`,
+      `👤 <b>تغییردهنده:</b> ${escapeHtml(actorName || 'کاربر')}</blockquote>`,
+    ];
+  } else {
+    // Created
+    messageLines = [
+      `✨ <b>تسک جدید در تسکرا</b>`,
+      ``,
+      `<blockquote>📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+      `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
+      `⚡ <b>اولویت:</b> ${priorityBadge}`,
+      `📅 <b>موعد انجام:</b> <code>${formattedDueDate}</code>`,
+      actorName ? `👤 <b>ایجادکننده:</b> ${escapeHtml(actorName)}` : null,
+      `</blockquote>`,
+    ].filter(Boolean);
+  }
 
   if (task.description && task.description.trim()) {
     const previewDesc =
-      task.description.length > 140
-        ? task.description.substring(0, 137) + '...'
+      task.description.length > 220
+        ? task.description.substring(0, 217) + '...'
         : task.description;
-    messageLines.push(`📋 <b>توضیحات:</b> ${escapeHtml(previewDesc)}`);
+    messageLines.push(``, `📝 <b>توضیحات:</b>`, `<blockquote>${escapeHtml(previewDesc)}</blockquote>`);
   }
 
-  messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  messageLines.push(`🔗 <a href="${escapeHtml(workspaceInfo.targetUrl)}">${escapeHtml(workspaceInfo.linkText)}</a>`);
-  messageLines.push(`⏰ ${new Date().toLocaleString('fa-IR')}`);
+  messageLines.push(
+    ``,
+    `🚀 <a href="${escapeHtml(workspaceInfo.targetUrl)}"><b>${escapeHtml(workspaceInfo.linkText)} ↗</b></a>`,
+    `───────────────`,
+    `🕒 <i>${dateStr}</i> • <b>Taskera</b>`
+  );
 
-  const fullMessage = messageLines.filter(Boolean).join('\n');
+  const fullMessage = messageLines.filter((l) => l !== null && l !== undefined).join('\n');
 
   return sendTelegramMessage({
     botToken,
@@ -584,44 +618,40 @@ export const sendTaskReminderTelegram = async ({
     ? 'امروز آخرین مهلت تعیین‌شده برای انجام این تسک می‌باشد.'
     : 'فردا موعد مقرر برای تحویل و انجام این تسک است.';
 
-  const priorityBadge =
-    task.priority === 'urgent'
-      ? '🔴 فوری (Urgent)'
-      : task.priority === 'high'
-      ? '🟠 بالا (High)'
-      : task.priority === 'low'
-      ? '🟢 پایین (Low)'
-      : '🔵 متوسط (Medium)';
-
+  const priorityBadge = PRIORITY_BADGES_FA[task.priority] || '🔵 متوسط (Medium)';
   const workspaceInfo = resolveWorkspaceDetails({ task, organizationName, clientUrl });
+  const dateStr = new Date().toLocaleString('fa-IR');
 
   const messageLines = [
     headerTitle,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+    ``,
+    `<blockquote>📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
     `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
     `⚡ <b>اولویت:</b> ${priorityBadge}`,
     `📅 <b>تاریخ سررسید:</b> <code>${escapeHtml(dueDateKey)}</code>`,
-    `ℹ️ ${stageNotice}`,
+    `ℹ️ <i>${stageNotice}</i></blockquote>`,
   ];
 
   if (task.description && task.description.trim()) {
     const previewDesc =
-      task.description.length > 140
-        ? task.description.substring(0, 137) + '...'
+      task.description.length > 220
+        ? task.description.substring(0, 217) + '...'
         : task.description;
-    messageLines.push(`📋 <b>توضیحات:</b> ${escapeHtml(previewDesc)}`);
+    messageLines.push(``, `📋 <b>توضیحات:</b>`, `<blockquote>${escapeHtml(previewDesc)}</blockquote>`);
   }
 
-  messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  messageLines.push(`🔗 <a href="${escapeHtml(workspaceInfo.targetUrl)}">${escapeHtml(workspaceInfo.linkText)}</a>`);
-  messageLines.push(`⏱️ ارسال خودکار توسط سیستم هوشمند Taskera`);
+  messageLines.push(
+    ``,
+    `🚀 <a href="${escapeHtml(workspaceInfo.targetUrl)}"><b>${escapeHtml(workspaceInfo.linkText)} ↗</b></a>`,
+    `───────────────`,
+    `⏱️ <i>ارسال خودکار توسط سیستم هوشمند Taskera</i>`
+  );
 
   try {
     return await sendTelegramMessage({
       botToken,
       chatId,
-      message: messageLines.filter(Boolean).join('\n'),
+      message: messageLines.filter((l) => l !== null && l !== undefined).join('\n'),
     });
   } catch (error) {
     const cleanReason = sanitizeTelegramErrorMessage(error.message, botToken);
@@ -663,27 +693,30 @@ export const notifyTaskCommentOnTelegram = async ({
     return { skipped: true, reason: 'EVENT_MUTED' };
   }
 
-  const headerTitle = '💬 <b>نظر جدید روی تسک</b>';
   const cleanComment =
-    commentContent && commentContent.length > 250
-      ? commentContent.substring(0, 247) + '...'
+    commentContent && commentContent.length > 300
+      ? commentContent.substring(0, 297) + '...'
       : commentContent || '';
 
   const workspaceInfo = resolveWorkspaceDetails({ task, organizationName, clientUrl });
+  const dateStr = new Date().toLocaleString('fa-IR');
 
   const messageLines = [
-    headerTitle,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+    `💬 <b>نظر جدید روی تسک</b>`,
+    ``,
+    `<blockquote>📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
     `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
-    `👤 <b>ارسال‌کننده نظر:</b> ${escapeHtml(commenterName || 'کاربر')}`,
-    `💬 <b>متن نظر:</b>\n<i>${escapeHtml(cleanComment)}</i>`,
-    `━━━━━━━━━━━━━━━━━━━━`,
-    `🔗 <a href="${escapeHtml(workspaceInfo.targetUrl)}">${escapeHtml(workspaceInfo.linkText)}</a>`,
-    `⏰ ${new Date().toLocaleString('fa-IR')}`,
+    `👤 <b>ارسال‌کننده نظر:</b> ${escapeHtml(commenterName || 'کاربر')}</blockquote>`,
+    ``,
+    `💬 <b>متن نظر:</b>`,
+    `<blockquote>${escapeHtml(cleanComment)}</blockquote>`,
+    ``,
+    `🚀 <a href="${escapeHtml(workspaceInfo.targetUrl)}"><b>${escapeHtml(workspaceInfo.linkText)} ↗</b></a>`,
+    `───────────────`,
+    `🕒 <i>${dateStr}</i> • <b>Taskera</b>`,
   ];
 
-  const fullMessage = messageLines.filter(Boolean).join('\n');
+  const fullMessage = messageLines.filter((l) => l !== null && l !== undefined).join('\n');
 
   try {
     return await sendTelegramMessage({
