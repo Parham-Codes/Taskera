@@ -389,10 +389,19 @@ export const sendTelegramTestMessage = async ({ botToken, chatId, userName }) =>
  * Helper to determine workspace display information and target URL
  */
 export const resolveWorkspaceDetails = ({ task, organizationName, clientUrl: customClientUrl } = {}) => {
-  const clientUrl =
-    customClientUrl ||
-    process.env.CLIENT_URL ||
+  let baseClientUrl =
+    (customClientUrl && customClientUrl.trim()) ||
+    (process.env.APP_URL && process.env.APP_URL.trim()) ||
+    (process.env.CLIENT_URL && process.env.CLIENT_URL.trim()) ||
     'https://parham-codes.github.io/Taskera';
+
+  // Normalize trailing slash
+  baseClientUrl = baseClientUrl.replace(/\/+$/, '');
+
+  // If pointing to github.io without /Taskera subpath, append /Taskera
+  if (baseClientUrl.includes('github.io') && !baseClientUrl.endsWith('/Taskera')) {
+    baseClientUrl = `${baseClientUrl}/Taskera`;
+  }
 
   const orgId = task?.organizationId?._id || task?.organizationId;
   const orgName =
@@ -401,7 +410,7 @@ export const resolveWorkspaceDetails = ({ task, organizationName, clientUrl: cus
 
   if (orgId) {
     const displayName = orgName ? `تیم ${orgName}` : 'تیم (فضای تیمی)';
-    const targetUrl = `${clientUrl}/teams/${orgId}`;
+    const targetUrl = `${baseClientUrl}/teams/${orgId}`;
     const linkText = orgName
       ? `ورود به فضای تیم (${orgName}) در تسکرا`
       : 'ورود به فضای تیم در تسکرا';
@@ -417,7 +426,7 @@ export const resolveWorkspaceDetails = ({ task, organizationName, clientUrl: cus
   return {
     isTeam: false,
     workspaceLabel: 'فضای شخصی (Personal Space)',
-    targetUrl: `${clientUrl}/personal`,
+    targetUrl: `${baseClientUrl}/personal`,
     linkText: 'ورود به فضای شخصی در تسکرا',
   };
 };
