@@ -15,7 +15,7 @@ export const TaskModal = ({
 }) => {
   const { activeWorkspace, members } = useWorkspace();
   const { categories } = useCategories();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
