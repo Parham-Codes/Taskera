@@ -11,7 +11,7 @@ import {
 import { api } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
-import { Modal } from '../../components/ui/index.js';
+import { Modal, ConfirmModal } from '../../components/ui/index.js';
 import { useTaskTimer } from './hooks/useTaskTimer.js';
 import { TaskDetailHeader } from './components/detail/TaskDetailHeader.jsx';
 import { TaskDetailTimeTracker } from './components/detail/TaskDetailTimeTracker.jsx';
@@ -41,6 +41,8 @@ export const TaskDetailModal = ({
   const [canMute, setCanMute] = useState(false);
   const [mutingLoading, setMutingLoading] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState(null);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
 
   // Subtasks State
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -156,13 +158,21 @@ export const TaskDetailModal = ({
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    if (!task) return;
+  const handleRequestDeleteComment = (commentId) => {
+    setCommentToDelete(commentId);
+  };
+
+  const handleConfirmDeleteComment = async () => {
+    if (!task || !commentToDelete) return;
     try {
-      await api.delete(`/tasks/${task._id}/comments/${commentId}`);
-      setComments((prev) => prev.filter((c) => c._id !== commentId));
+      setDeletingCommentId(commentToDelete);
+      await api.delete(`/tasks/${task._id}/comments/${commentToDelete}`);
+      setComments((prev) => prev.filter((c) => c._id !== commentToDelete));
+      setCommentToDelete(null);
     } catch (err) {
       console.error('Failed to delete comment:', err);
+    } finally {
+      setDeletingCommentId(null);
     }
   };
 
@@ -234,7 +244,8 @@ export const TaskDetailModal = ({
   if (!isOpen) return null;
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={t('taskDetails')}
@@ -369,7 +380,8 @@ export const TaskDetailModal = ({
           <TaskDetailComments
             comments={comments}
             currentUserId={user?.id}
-            onDeleteComment={handleDeleteComment}
+            onDeleteComment={handleRequestDeleteComment}
+            deletingCommentId={deletingCommentId}
             onSendComment={handleSendComment}
             submittingComment={submittingComment}
             isMuted={isMuted}
@@ -382,5 +394,19 @@ export const TaskDetailModal = ({
         </div>
       ) : null}
     </Modal>
+
+    {/* Confirm Delete Comment Modal */}
+    <ConfirmModal
+      isOpen={Boolean(commentToDelete)}
+      onClose={() => !deletingCommentId && setCommentToDelete(null)}
+      onConfirm={handleConfirmDeleteComment}
+      title={t('confirmDeleteCommentTitle')}
+      description={t('confirmDeleteCommentDesc')}
+      confirmText={t('confirmDeleteBtn')}
+      cancelText={t('cancel')}
+      variant="danger"
+      loading={Boolean(deletingCommentId)}
+    />
+    </>
   );
 };

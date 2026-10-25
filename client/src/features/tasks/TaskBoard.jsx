@@ -16,6 +16,7 @@ import { TaskModal } from './TaskModal.jsx';
 import { TaskStats } from './TaskStats.jsx';
 import { TaskDetailModal } from './TaskDetailModal.jsx';
 import { CommentDrawer } from '../comments/CommentDrawer.jsx';
+import { ConfirmModal } from '../../components/ui/index.js';
 
 import { TaskBoardNotificationView } from './components/board/TaskBoardNotificationView.jsx';
 import { TaskBoardFilterHeader } from './components/board/TaskBoardFilterHeader.jsx';
@@ -58,6 +59,8 @@ export const TaskBoard = ({
   const [activeCommentTask, setActiveCommentTask] = useState(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState(null);
@@ -219,7 +222,8 @@ export const TaskBoard = ({
       } else if (sidebarFilter === 'due-soon') {
         if (!task.dueDate || task.status === 'completed') return false;
         const due = new Date(task.dueDate).getTime();
-        if (due > Date.now() + 3 * 24 * 60 * 60 * 1000) return false;
+        const now = Date.now();
+        if (due < now || due > now + 3 * 24 * 60 * 60 * 1000) return false;
       } else if (sidebarFilter === 'completed') {
         if (task.status !== 'completed') return false;
       } else if (sidebarFilter?.startsWith('cat:')) {
@@ -328,14 +332,22 @@ export const TaskBoard = ({
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm(t('confirmDeleteTask'))) return;
+  const handleRequestDeleteTask = (taskId) => {
+    setTaskToDelete(taskId);
+  };
+
+  const handleConfirmDeleteTask = async () => {
+    if (!taskToDelete) return;
     try {
-      setAllTasks((prev) => prev.filter((t) => t._id !== taskId));
-      await api.delete(`/tasks/${taskId}`);
+      setIsDeletingTask(true);
+      await api.delete(`/tasks/${taskToDelete}`);
+      setAllTasks((prev) => prev.filter((t) => t._id !== taskToDelete));
+      setTaskToDelete(null);
     } catch (err) {
       console.error('Failed to delete task:', err);
       fetchTasks();
+    } finally {
+      setIsDeletingTask(false);
     }
   };
 
@@ -519,7 +531,7 @@ export const TaskBoard = ({
                 setEditingTask(task);
                 onOpenTaskModal();
               }}
-              onDelete={(taskId) => handleDeleteTask(taskId)}
+              onDelete={(taskId) => handleRequestDeleteTask(taskId)}
               onStatusChange={handleStatusChange}
               onOpenComments={(task) => setActiveCommentTask(task)}
               onCategoryClick={(catId) => setSelectedCategoryFilter(catId)}
@@ -540,7 +552,7 @@ export const TaskBoard = ({
                 setEditingTask(task);
                 onOpenTaskModal();
               }}
-              onDelete={(taskId) => handleDeleteTask(taskId)}
+              onDelete={(taskId) => handleRequestDeleteTask(taskId)}
               onStatusChange={handleStatusChange}
               onOpenComments={(task) => setActiveCommentTask(task)}
               onCategoryClick={(catId) => setSelectedCategoryFilter(catId)}
@@ -561,7 +573,7 @@ export const TaskBoard = ({
                 setEditingTask(task);
                 onOpenTaskModal();
               }}
-              onDelete={(taskId) => handleDeleteTask(taskId)}
+              onDelete={(taskId) => handleRequestDeleteTask(taskId)}
               formatDate={formatDate}
               t={t}
             />
@@ -580,7 +592,7 @@ export const TaskBoard = ({
           setEditingTask(t);
           onOpenTaskModal();
         }}
-        onDeleteTask={handleDeleteTask}
+        onDeleteTask={handleRequestDeleteTask}
       />
 
       {/* 6. Create / Edit Task Modal */}
@@ -602,6 +614,19 @@ export const TaskBoard = ({
         isOpen={Boolean(activeCommentTask)}
         onClose={() => setActiveCommentTask(null)}
         task={activeCommentTask}
+      />
+
+      {/* 8. Confirm Delete Task Modal */}
+      <ConfirmModal
+        isOpen={Boolean(taskToDelete)}
+        onClose={() => !isDeletingTask && setTaskToDelete(null)}
+        onConfirm={handleConfirmDeleteTask}
+        title={t('confirmDeleteTaskTitle')}
+        description={t('confirmDeleteTaskDesc')}
+        confirmText={t('confirmDeleteBtn')}
+        cancelText={t('cancel')}
+        variant="danger"
+        loading={isDeletingTask}
       />
     </div>
   );

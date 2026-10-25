@@ -41,6 +41,7 @@ export const findEligibleReminders = async (referenceDate = new Date()) => {
     status: { $ne: TASK_STATUS.COMPLETED },
   })
     .select('title description status priority dueDate createdBy assignedTo organizationId')
+    .populate('organizationId', 'name slug')
     .populate('assignedTo', 'name email timezone telegramSettings')
     .populate('createdBy', 'name email timezone telegramSettings')
     .lean();

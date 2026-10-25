@@ -3,6 +3,7 @@ import {
   Comment,
   Task,
   User,
+  Organization,
   OrganizationMember,
   ORG_ROLES,
   ActivityLog,
@@ -110,9 +111,11 @@ export const addComment = async (req, res, next) => {
     // Asynchronous Telegram Notification dispatch (Non-blocking)
     (async () => {
       try {
-        const clientUrl =
-          process.env.CLIENT_URL || 'https://parham-codes.github.io/Taskera';
-        const deepLink = `${clientUrl}/?task=${task._id}`;
+        let organizationName = null;
+        if (task.organizationId) {
+          const org = await Organization.findById(task.organizationId).select('name').lean();
+          if (org) organizationName = org.name;
+        }
 
         for (const rId of uniqueRecipientIds) {
           const recipientUser = await User.findById(rId)
@@ -125,7 +128,7 @@ export const addComment = async (req, res, next) => {
               task,
               commenterName: req.user.name,
               commentContent: content,
-              taskUrl: deepLink,
+              organizationName,
             });
           }
         }

@@ -21,12 +21,18 @@ export const LanguageProvider = ({ children }) => {
     setLang((prev) => (prev === 'fa' ? 'en' : 'fa'));
   };
 
+  const setLanguage = (newLang) => {
+    if (newLang === 'fa' || newLang === 'en') {
+      setLang(newLang);
+    }
+  };
+
   const t = (key) => {
     return translations[lang]?.[key] || translations.en?.[key] || key;
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, dir, toggleLang, t }}>
+    <LanguageContext.Provider value={{ lang, dir, toggleLang, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

@@ -6,6 +6,7 @@ import { useLanguage } from '../../context/LanguageContext.jsx';
 import { useScrollLock } from '../../utils/useScrollLock.js';
 
 import { createPortal } from 'react-dom';
+import { ConfirmModal } from '../../components/ui/index.js';
 
 export const CommentDrawer = ({ isOpen, onClose, task }) => {
   useScrollLock(isOpen);
@@ -20,6 +21,8 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
   const [canMute, setCanMute] = useState(false);
   const [mutingLoading, setMutingLoading] = useState(false);
   const [error, setError] = useState('');
+  const [commentToDelete, setCommentToDelete] = useState(null);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
 
   useEffect(() => {
     if (isOpen && task?._id) {
@@ -88,12 +91,21 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
+  const handleRequestDeleteComment = (commentId) => {
+    setCommentToDelete(commentId);
+  };
+
+  const handleConfirmDeleteComment = async () => {
+    if (!task?._id || !commentToDelete) return;
     try {
-      await api.delete(`/tasks/${task._id}/comments/${commentId}`);
-      setComments((prev) => prev.filter((c) => c._id !== commentId));
+      setDeletingCommentId(commentToDelete);
+      await api.delete(`/tasks/${task._id}/comments/${commentToDelete}`);
+      setComments((prev) => prev.filter((c) => c._id !== commentToDelete));
+      setCommentToDelete(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete comment');
+    } finally {
+      setDeletingCommentId(null);
     }
   };
 
@@ -223,11 +235,17 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
                         <span className="text-[10px] text-slate-400">{formatDate(comment.createdAt)}</span>
                         {isMe && (
                           <button
-                            onClick={() => handleDeleteComment(comment._id)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 transition-opacity"
+                            type="button"
+                            disabled={deletingCommentId === comment._id}
+                            onClick={() => handleRequestDeleteComment(comment._id)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 transition-opacity disabled:opacity-100"
                             title={t('delete')}
                           >
-                            <Trash2 className="w-3 h-3" />
+                            {deletingCommentId === comment._id ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-red-500" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -264,6 +282,19 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
           />
         </form>
       </aside>
+
+      {/* Confirm Delete Comment Modal */}
+      <ConfirmModal
+        isOpen={Boolean(commentToDelete)}
+        onClose={() => !deletingCommentId && setCommentToDelete(null)}
+        onConfirm={handleConfirmDeleteComment}
+        title={t('confirmDeleteCommentTitle')}
+        description={t('confirmDeleteCommentDesc')}
+        confirmText={t('confirmDeleteBtn')}
+        cancelText={t('cancel')}
+        variant="danger"
+        loading={Boolean(deletingCommentId)}
+      />
     </div>,
     document.body
   );

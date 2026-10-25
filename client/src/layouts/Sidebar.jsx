@@ -229,6 +229,7 @@ export const Sidebar = ({
                   onClick={() => {
                     setWorkspaceMenuOpen(false);
                     onOpenCreateOrg();
+                    onClose?.();
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs text-brand-600 dark:text-brand-400 hover:bg-brand-50/70 dark:hover:bg-brand-950/30 transition-colors font-semibold"
                 >
@@ -241,7 +242,10 @@ export const Sidebar = ({
 
           {/* Prominent Quick "+ New Task" Button */}
           <button
-            onClick={onOpenNewTask}
+            onClick={() => {
+              onOpenNewTask();
+              onClose?.();
+            }}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 active:scale-[0.98] transition-all shadow-md shadow-brand-500/25"
           >
             <Plus className="w-4 h-4" />
@@ -299,7 +303,10 @@ export const Sidebar = ({
               </span>
               {onOpenCategoryManager && (
                 <button
-                  onClick={onOpenCategoryManager}
+                  onClick={() => {
+                    onOpenCategoryManager();
+                    onClose?.();
+                  }}
                   className="p-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
                   title={t('manageCategories')}
                 >
@@ -375,7 +382,10 @@ export const Sidebar = ({
                 </span>
                 {['owner', 'manager'].includes(activeWorkspace?.role?.toLowerCase?.()) && (
                   <button
-                    onClick={onOpenInviteMember}
+                    onClick={() => {
+                      onOpenInviteMember();
+                      onClose?.();
+                    }}
                     className="p-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40"
                     title={t('addMemberBtn')}
                   >

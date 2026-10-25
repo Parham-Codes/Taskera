@@ -3,7 +3,7 @@ import { Tag, Plus, Trash2, X, Check, AlertCircle, Loader2 } from 'lucide-react'
 import { useCategories } from '../../context/CategoryContext.jsx';
 import { useWorkspace } from '../../context/WorkspaceContext.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
-import { Modal } from '../../components/ui/index.js';
+import { Modal, ConfirmModal } from '../../components/ui/index.js';
 
 const PRESET_COLORS = [
   '#4F5AE4', // Brand Indigo
@@ -25,6 +25,8 @@ export const CategoryManagerModal = ({ isOpen, onClose }) => {
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   const handleCreate = async (e) => {
     e?.preventDefault();
@@ -43,17 +45,30 @@ export const CategoryManagerModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleDelete = async (catId) => {
-    const res = await deleteCategory(catId);
-    if (!res.success) {
-      setError(res.message || 'Error deleting category');
+  const handleRequestDelete = (catId) => {
+    setCategoryToDelete(catId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!categoryToDelete) return;
+    try {
+      setIsDeletingCategory(true);
+      const res = await deleteCategory(categoryToDelete);
+      if (!res.success) {
+        setError(res.message || 'Error deleting category');
+      } else {
+        setCategoryToDelete(null);
+      }
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={t('manageCategories')}
@@ -169,11 +184,17 @@ export const CategoryManagerModal = ({ isOpen, onClose }) => {
                   </div>
 
                   <button
-                    onClick={() => handleDelete(cat._id)}
-                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+                    type="button"
+                    disabled={isDeletingCategory && categoryToDelete === cat._id}
+                    onClick={() => handleRequestDelete(cat._id)}
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors disabled:opacity-50"
                     title={t('delete')}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {isDeletingCategory && categoryToDelete === cat._id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-red-500" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 </div>
               ))}
@@ -182,5 +203,19 @@ export const CategoryManagerModal = ({ isOpen, onClose }) => {
         </div>
       </div>
     </Modal>
+
+    {/* Confirm Delete Category Modal */}
+    <ConfirmModal
+      isOpen={Boolean(categoryToDelete)}
+      onClose={() => !isDeletingCategory && setCategoryToDelete(null)}
+      onConfirm={handleConfirmDelete}
+      title={t('confirmDeleteCategoryTitle')}
+      description={t('confirmDeleteCategoryDesc')}
+      confirmText={t('confirmDeleteBtn')}
+      cancelText={t('cancel')}
+      variant="danger"
+      loading={isDeletingCategory}
+    />
+    </>
   );
 };

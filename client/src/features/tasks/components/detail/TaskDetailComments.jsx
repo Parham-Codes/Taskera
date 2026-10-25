@@ -6,6 +6,7 @@ export const TaskDetailComments = ({
   comments = [],
   currentUserId,
   onDeleteComment,
+  deletingCommentId = null,
   onSendComment,
   submittingComment,
   isMuted = false,
@@ -94,11 +95,17 @@ export const TaskDetailComments = ({
                     <span>{formatTaskDate(c.createdAt, lang)}</span>
                     {isMine && (
                       <button
+                        type="button"
+                        disabled={deletingCommentId === c._id}
                         onClick={() => onDeleteComment(c._id)}
-                        className="text-slate-400 hover:text-red-500 transition-colors"
+                        className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                         title={t('delete')}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        {deletingCommentId === c._id ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-red-500" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
                       </button>
                     )}
                   </div>

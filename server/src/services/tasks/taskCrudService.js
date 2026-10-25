@@ -98,6 +98,7 @@ export const taskCrudService = {
 
     // Populate for immediate frontend UI insertion
     const populatedTask = await Task.findById(task._id)
+      .populate('organizationId', 'name slug')
       .populate('createdBy', 'name email avatar')
       .populate('assignedTo', 'name email avatar')
       .populate('categoryId', 'name color')
@@ -118,30 +119,47 @@ export const taskCrudService = {
     (async () => {
       try {
         const creatorIdStr = user._id.toString();
-        for (const assigneeId of targetAssigneeIds) {
-          const assigneeIdStr = assigneeId.toString();
-          if (assigneeIdStr === creatorIdStr) {
-            if (user?.telegramSettings?.enabled && user?.telegramSettings?.notifyOnCreated !== false) {
-              await notifyTaskEventOnTelegram({
-                recipientUser: user,
-                task: populatedTask,
-                eventType: 'created',
-                actorName: user.name,
-              });
-            }
-          } else {
-            const assigneeUser = await User.findById(assigneeId)
-              .select('name email telegramSettings')
-              .lean();
+        const freshCreator = await User.findById(user._id)
+          .select('name email telegramSettings')
+          .lean();
 
-            if (assigneeUser?.telegramSettings?.enabled) {
-              await notifyTaskEventOnTelegram({
-                recipientUser: assigneeUser,
-                task: populatedTask,
-                eventType: 'assigned',
-                actorName: user.name,
-              });
-            }
+        const orgName = populatedTask.organizationId?.name || null;
+
+        // 1. Notify Creator on task creation (if enabled)
+        if (
+          freshCreator?.telegramSettings?.enabled &&
+          freshCreator?.telegramSettings?.notifyOnCreated !== false
+        ) {
+          await notifyTaskEventOnTelegram({
+            recipientUser: freshCreator,
+            task: populatedTask,
+            eventType: 'created',
+            actorName: freshCreator.name,
+            organizationName: orgName,
+          });
+        }
+
+        // 2. Notify Assignees (other than the creator) about their new assignment
+        const otherAssigneeIds = targetAssigneeIds.filter(
+          (id) => id.toString() !== creatorIdStr
+        );
+
+        for (const assigneeId of otherAssigneeIds) {
+          const assigneeUser = await User.findById(assigneeId)
+            .select('name email telegramSettings')
+            .lean();
+
+          if (
+            assigneeUser?.telegramSettings?.enabled &&
+            assigneeUser?.telegramSettings?.notifyOnAssigned !== false
+          ) {
+            await notifyTaskEventOnTelegram({
+              recipientUser: assigneeUser,
+              task: populatedTask,
+              eventType: 'assigned',
+              actorName: freshCreator?.name || user.name,
+              organizationName: orgName,
+            });
           }
         }
       } catch (tgError) {
@@ -288,10 +306,13 @@ export const taskCrudService = {
     await task.save();
 
     const updatedTask = await Task.findById(task._id)
+      .populate('organizationId', 'name slug')
       .populate('createdBy', 'name email avatar')
       .populate('assignedTo', 'name email avatar')
       .populate('categoryId', 'name color')
       .lean();
+
+    const orgName = updatedTask.organizationId?.name || null;
 
     // Log Activity changes if in organization
     if (task.organizationId) {
@@ -336,6 +357,7 @@ export const taskCrudService = {
                 task: updatedTask,
                 eventType: 'assigned',
                 actorName: user.name,
+                organizationName: orgName,
               });
             }
           }
@@ -379,6 +401,7 @@ export const taskCrudService = {
                 actorName: user.name,
                 oldStatus: previousStatus,
                 newStatus: updates.status,
+                organizationName: orgName,
               });
             }
           }

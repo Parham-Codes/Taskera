@@ -386,6 +386,43 @@ export const sendTelegramTestMessage = async ({ botToken, chatId, userName }) =>
 };
 
 /**
+ * Helper to determine workspace display information and target URL
+ */
+export const resolveWorkspaceDetails = ({ task, organizationName, clientUrl: customClientUrl } = {}) => {
+  const clientUrl =
+    customClientUrl ||
+    process.env.CLIENT_URL ||
+    'https://parham-codes.github.io/Taskera';
+
+  const orgId = task?.organizationId?._id || task?.organizationId;
+  const orgName =
+    organizationName ||
+    (task?.organizationId && typeof task.organizationId === 'object' ? task.organizationId.name : null);
+
+  if (orgId) {
+    const displayName = orgName ? `تیم ${orgName}` : 'تیم (فضای تیمی)';
+    const targetUrl = `${clientUrl}/teams/${orgId}`;
+    const linkText = orgName
+      ? `ورود به فضای تیم (${orgName}) در تسکرا`
+      : 'ورود به فضای تیم در تسکرا';
+
+    return {
+      isTeam: true,
+      workspaceLabel: displayName,
+      targetUrl,
+      linkText,
+    };
+  }
+
+  return {
+    isTeam: false,
+    workspaceLabel: 'فضای شخصی (Personal Space)',
+    targetUrl: `${clientUrl}/personal`,
+    linkText: 'ورود به فضای شخصی در تسکرا',
+  };
+};
+
+/**
  * Formats and dispatches a task creation/assignment notification
  */
 export const notifyTaskEventOnTelegram = async ({
@@ -395,6 +432,8 @@ export const notifyTaskEventOnTelegram = async ({
   actorName,
   oldStatus,
   newStatus,
+  organizationName,
+  clientUrl,
 }) => {
   if (!recipientUser?.telegramSettings?.enabled) {
     return { skipped: true, reason: 'NOT_ENABLED' };
@@ -444,11 +483,14 @@ export const notifyTaskEventOnTelegram = async ({
     ? new Date(task.dueDate).toLocaleDateString('fa-IR')
     : 'بدون موعد مشخص';
 
+  const workspaceInfo = resolveWorkspaceDetails({ task, organizationName, clientUrl });
+
   const messageLines = [
     headerTitle,
     `━━━━━━━━━━━━━━━━━━━━`,
     `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
     eventDetail.trim(),
+    `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
     `⚡ <b>اولویت:</b> ${priorityBadge}`,
     `📅 <b>موعد انجام:</b> ${formattedDueDate}`,
   ];
@@ -462,6 +504,7 @@ export const notifyTaskEventOnTelegram = async ({
   }
 
   messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  messageLines.push(`🔗 <a href="${escapeHtml(workspaceInfo.targetUrl)}">${escapeHtml(workspaceInfo.linkText)}</a>`);
   messageLines.push(`⏰ ${new Date().toLocaleString('fa-IR')}`);
 
   const fullMessage = messageLines.filter(Boolean).join('\n');
@@ -500,6 +543,8 @@ export const isTelegramConfigured = (recipientUser) => {
  * @param {Object} params.task - Populated task document
  * @param {string} params.reminderStage - 'day_before' | 'due_today'
  * @param {string} params.dueDateKey - 'YYYY-MM-DD'
+ * @param {string} [params.organizationName]
+ * @param {string} [params.clientUrl]
  * @returns {Promise<{ success: boolean, reason?: string, skipped?: boolean }>}
  */
 export const sendTaskReminderTelegram = async ({
@@ -507,6 +552,8 @@ export const sendTaskReminderTelegram = async ({
   task,
   reminderStage,
   dueDateKey,
+  organizationName,
+  clientUrl,
 }) => {
   if (!isTelegramConfigured(recipientUser)) {
     return {
@@ -537,10 +584,13 @@ export const sendTaskReminderTelegram = async ({
       ? '🟢 پایین (Low)'
       : '🔵 متوسط (Medium)';
 
+  const workspaceInfo = resolveWorkspaceDetails({ task, organizationName, clientUrl });
+
   const messageLines = [
     headerTitle,
     `━━━━━━━━━━━━━━━━━━━━`,
     `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+    `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
     `⚡ <b>اولویت:</b> ${priorityBadge}`,
     `📅 <b>تاریخ سررسید:</b> <code>${escapeHtml(dueDateKey)}</code>`,
     `ℹ️ ${stageNotice}`,
@@ -555,6 +605,7 @@ export const sendTaskReminderTelegram = async ({
   }
 
   messageLines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  messageLines.push(`🔗 <a href="${escapeHtml(workspaceInfo.targetUrl)}">${escapeHtml(workspaceInfo.linkText)}</a>`);
   messageLines.push(`⏱️ ارسال خودکار توسط سیستم هوشمند Taskera`);
 
   try {
@@ -571,21 +622,23 @@ export const sendTaskReminderTelegram = async ({
 
 /**
  * Dispatch Telegram notification when a comment is added to a task.
- * Includes commenter name, task title, comment preview, and deep link to the web app.
+ * Includes commenter name, task title, comment preview, workspace info, and link to the space.
  *
  * @param {Object} params
  * @param {Object} params.recipientUser
  * @param {Object} params.task
  * @param {string} params.commenterName
  * @param {string} params.commentContent
- * @param {string} params.taskUrl
+ * @param {string} [params.organizationName]
+ * @param {string} [params.clientUrl]
  */
 export const notifyTaskCommentOnTelegram = async ({
   recipientUser,
   task,
   commenterName,
   commentContent,
-  taskUrl,
+  organizationName,
+  clientUrl,
 }) => {
   if (!recipientUser?.telegramSettings?.enabled) {
     return { skipped: true, reason: 'NOT_ENABLED' };
@@ -607,20 +660,19 @@ export const notifyTaskCommentOnTelegram = async ({
       ? commentContent.substring(0, 247) + '...'
       : commentContent || '';
 
+  const workspaceInfo = resolveWorkspaceDetails({ task, organizationName, clientUrl });
+
   const messageLines = [
     headerTitle,
     `━━━━━━━━━━━━━━━━━━━━`,
     `📌 <b>عنوان تسک:</b> ${escapeHtml(task.title)}`,
+    `🏢 <b>فضای کاری:</b> ${escapeHtml(workspaceInfo.workspaceLabel)}`,
     `👤 <b>ارسال‌کننده نظر:</b> ${escapeHtml(commenterName || 'کاربر')}`,
     `💬 <b>متن نظر:</b>\n<i>${escapeHtml(cleanComment)}</i>`,
     `━━━━━━━━━━━━━━━━━━━━`,
+    `🔗 <a href="${escapeHtml(workspaceInfo.targetUrl)}">${escapeHtml(workspaceInfo.linkText)}</a>`,
+    `⏰ ${new Date().toLocaleString('fa-IR')}`,
   ];
-
-  if (taskUrl) {
-    messageLines.push(`🔗 <a href="${escapeHtml(taskUrl)}">مشاهده تسک و پاسخ در سایت</a>`);
-  }
-
-  messageLines.push(`⏰ ${new Date().toLocaleString('fa-IR')}`);
 
   const fullMessage = messageLines.filter(Boolean).join('\n');
 
