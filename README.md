@@ -17,7 +17,7 @@
   A high-performance, full-stack Task & Workspace Platform featuring Real-Time Telegram Bot Alerts, AI Markdown Batch Sync, Time Tracking & Granular RBAC.
 </p>
 
-[Live Demo](https://parham-codes.github.io/portfolio/) • [Author Profile](https://github.com/Parham-Codes) • [Report Issue](https://github.com/Parham-Codes/taskera/issues)
+[Live Demo](https://parham-codes.github.io/Taskera) • [Author Profile](https://github.com/Parham-Codes) • [Report Issue](https://github.com/Parham-Codes/taskera/issues)
 
 </div>
 

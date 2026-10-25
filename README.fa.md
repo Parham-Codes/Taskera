@@ -17,7 +17,7 @@
   یک پلتفرم فول‌استک و مدرن مدیریت تسک و فضای کاری با قابلیت نوتیفیکیشن‌های تلگرام، ایمپورت هوشمند مارک‌داون با هوش مصنوعی، رهگیری زمان و سیستم سطوح دسترسی پیشرفته (RBAC).
 </p>
 
-[نمونه آنلاین (پورتفولیو)](https://parham-codes.github.io/portfolio/) • [پروفایل گیت‌هاب](https://github.com/Parham-Codes) • [گزارش باگ یا پیشنهاد](https://github.com/Parham-Codes/taskera/issues)
+[دموی آنلاین (Live Demo)](https://parham-codes.github.io/Taskera) • [پروفایل گیت‌هاب](https://github.com/Parham-Codes) • [گزارش باگ یا پیشنهاد](https://github.com/Parham-Codes/taskera/issues)
 
 </div>
 
