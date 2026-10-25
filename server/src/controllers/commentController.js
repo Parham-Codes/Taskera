@@ -91,8 +91,20 @@ export const addComment = async (req, res, next) => {
       .map((id) => id.toString())
       .filter((id) => id !== req.user.id && !assigneesSet.has(id) && !mutedUsersSet.has(id));
 
+    const creatorIdStr = task.createdBy ? task.createdBy.toString() : null;
+    const isCreatorEligible =
+      creatorIdStr &&
+      creatorIdStr !== req.user.id &&
+      !mutedUsersSet.has(creatorIdStr);
+
     // Combined unique recipients
-    const uniqueRecipientIds = [...new Set([...assigneeIds, ...participantIds])];
+    const uniqueRecipientIds = [
+      ...new Set([
+        ...assigneeIds,
+        ...participantIds,
+        ...(isCreatorEligible ? [creatorIdStr] : []),
+      ]),
+    ];
 
     // In-app notifications
     for (const recipientId of uniqueRecipientIds) {

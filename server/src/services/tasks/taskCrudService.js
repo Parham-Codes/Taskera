@@ -397,14 +397,14 @@ export const taskCrudService = {
           ];
 
           for (const recipientId of recipientIds) {
-            const recipient =
-              recipientId === user._id.toString()
-                ? user
-                : await User.findById(recipientId)
-                    .select('name email telegramSettings')
-                    .lean();
+            const recipient = await User.findById(recipientId)
+              .select('name email telegramSettings')
+              .lean();
 
-            if (recipient?.telegramSettings?.enabled) {
+            if (
+              recipient?.telegramSettings?.enabled &&
+              recipient?.telegramSettings?.notifyOnStatusChange !== false
+            ) {
               await notifyTaskEventOnTelegram({
                 recipientUser: recipient,
                 task: updatedTask,
