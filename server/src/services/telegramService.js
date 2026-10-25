@@ -403,7 +403,7 @@ export const sendTelegramTestMessage = async ({ botToken, chatId, userName }) =>
     `ربات تلگرام Taskera به حساب کاربری شما متصل شد. از این پس اعلان‌های ایجاد تسک، تخصیص وظایف، تغییر وضعیت و نظرات را فوراً در این صفحه دریافت خواهید کرد.</blockquote>`,
     ``,
     `───────────────`,
-    `🕒 <i>${dateStr}</i> • <b>Taskera</b>`,
+    `🕒 ${dateStr} • <b>Taskera</b>`,
   ].join('\n');
 
   return sendTelegramMessage({ botToken, chatId, message });
@@ -547,7 +547,7 @@ export const notifyTaskEventOnTelegram = async ({
     ``,
     `🚀 <a href="${escapeHtml(workspaceInfo.targetUrl)}"><b>${escapeHtml(workspaceInfo.linkText)} ↗</b></a>`,
     `───────────────`,
-    `🕒 <i>${dateStr}</i> • <b>Taskera</b>`
+    `🕒 ${dateStr} • <b>Taskera</b>`
   );
 
   const fullMessage = messageLines.filter((l) => l !== null && l !== undefined).join('\n');
@@ -644,7 +644,7 @@ export const sendTaskReminderTelegram = async ({
     ``,
     `🚀 <a href="${escapeHtml(workspaceInfo.targetUrl)}"><b>${escapeHtml(workspaceInfo.linkText)} ↗</b></a>`,
     `───────────────`,
-    `⏱️ <i>ارسال خودکار توسط سیستم هوشمند Taskera</i>`
+    `⏱️ ارسال خودکار توسط سیستم هوشمند Taskera`
   );
 
   try {
@@ -713,7 +713,7 @@ export const notifyTaskCommentOnTelegram = async ({
     ``,
     `🚀 <a href="${escapeHtml(workspaceInfo.targetUrl)}"><b>${escapeHtml(workspaceInfo.linkText)} ↗</b></a>`,
     `───────────────`,
-    `🕒 <i>${dateStr}</i> • <b>Taskera</b>`,
+    `🕒 ${dateStr} • <b>Taskera</b>`,
   ];
 
   const fullMessage = messageLines.filter((l) => l !== null && l !== undefined).join('\n');
