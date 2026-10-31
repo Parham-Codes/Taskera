@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   UserCheck,
   Bell,
+  Tag,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useWorkspace } from '../../context/WorkspaceContext.jsx';
@@ -21,6 +22,7 @@ import { ConfirmModal } from '../../components/ui/index.js';
 import { TaskBoardNotificationView } from './components/board/TaskBoardNotificationView.jsx';
 import { TaskBoardFilterHeader } from './components/board/TaskBoardFilterHeader.jsx';
 import { TaskCategoryFilterBar } from './components/board/TaskCategoryFilterBar.jsx';
+import { TaskStatusFilterBar } from './components/board/TaskStatusFilterBar.jsx';
 import { TaskKanbanBoard } from './components/board/TaskKanbanBoard.jsx';
 import { TaskFocusedStackView } from './components/board/TaskFocusedStackView.jsx';
 import { TaskListView } from './components/board/TaskListView.jsx';
@@ -58,9 +60,15 @@ export const TaskBoard = ({
   const [activeDetailTaskId, setActiveDetailTaskId] = useState(null);
   const [activeCommentTask, setActiveCommentTask] = useState(null);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
+
+  // Reset status filter whenever sidebar filter switches
+  useEffect(() => {
+    setSelectedStatusFilter('all');
+  }, [sidebarFilter]);
 
   // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState(null);
@@ -251,6 +259,11 @@ export const TaskBoard = ({
         if (catId !== selectedCategoryFilter) return false;
       }
 
+      // 5. Status Filter (active when in a Category or in ListView)
+      if (selectedStatusFilter !== 'all') {
+        if (task.status !== selectedStatusFilter) return false;
+      }
+
       return true;
     });
   }, [
@@ -259,6 +272,7 @@ export const TaskBoard = ({
     priorityFilter,
     search,
     selectedCategoryFilter,
+    selectedStatusFilter,
     user?.id,
   ]);
 
@@ -390,34 +404,63 @@ export const TaskBoard = ({
     [lang]
   );
 
+  // Check if viewing a specific category selected from Sidebar
+  const isCategoryFromSidebar = Boolean(sidebarFilter?.startsWith('cat:'));
+  const selectedSidebarCategory = isCategoryFromSidebar
+    ? categories.find((c) => String(c._id) === sidebarFilter.replace('cat:', ''))
+    : null;
+
+  // Compute tasks in the current category scope for accurate status counts
+  const categoryScopedTasks = useMemo(() => {
+    if (isCategoryFromSidebar) {
+      const targetCatId = sidebarFilter.replace('cat:', '');
+      return allTasks.filter((task) => {
+        const catId = task.categoryId?._id || task.categoryId;
+        return String(catId) === String(targetCatId);
+      });
+    }
+    return allTasks;
+  }, [allTasks, isCategoryFromSidebar, sidebarFilter]);
+
   // Filter metadata when viewing a specific sidebar filter
-  const filterMeta = {
-    'in-progress': {
-      title: t('quickFilterInProgress'),
-      icon: Clock,
-      color: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-    },
-    'my-tasks': {
-      title: t('quickFilterMyTasks'),
-      icon: UserCheck,
-      color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-    },
-    'due-soon': {
-      title: t('quickFilterDueSoon'),
-      icon: AlertTriangle,
-      color: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
-    },
-    'completed': {
-      title: t('quickFilterCompleted'),
-      icon: CheckCircle2,
-      color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-    },
-    'notifications': {
-      title: t('notificationsTitle'),
-      icon: Bell,
-      color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
-    },
-  }[sidebarFilter];
+  const filterMeta = useMemo(() => {
+    if (isCategoryFromSidebar) {
+      return {
+        title: selectedSidebarCategory?.name || t('categories'),
+        icon: Tag,
+        color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
+        customColor: selectedSidebarCategory?.color || '#4F5AE4',
+      };
+    }
+
+    return {
+      'in-progress': {
+        title: t('quickFilterInProgress'),
+        icon: Clock,
+        color: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
+      },
+      'my-tasks': {
+        title: t('quickFilterMyTasks'),
+        icon: UserCheck,
+        color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
+      },
+      'due-soon': {
+        title: t('quickFilterDueSoon'),
+        icon: AlertTriangle,
+        color: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
+      },
+      'completed': {
+        title: t('quickFilterCompleted'),
+        icon: CheckCircle2,
+        color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
+      },
+      'notifications': {
+        title: t('notificationsTitle'),
+        icon: Bell,
+        color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
+      },
+    }[sidebarFilter];
+  }, [sidebarFilter, isCategoryFromSidebar, selectedSidebarCategory, t]);
 
   // Selected task object for instant 0ms TaskDetailModal rendering
   const selectedTaskForDetail = allTasks.find(
@@ -480,14 +523,48 @@ export const TaskBoard = ({
             />
           )}
 
-          {/* Quick Category Filter Pills */}
-          <TaskCategoryFilterBar
-            categories={categories}
-            selectedCategory={selectedCategoryFilter}
-            onSelectCategory={(catId) => setSelectedCategoryFilter(catId)}
-            tasks={allTasks}
-            t={t}
-          />
+          {/* Category Filter vs Status Filter Bar:
+              - If a category is selected from the sidebar: DO NOT show category pills. Show Status Filter Tabs!
+              - If in ListView (نمای دوم) for All Tasks: Show Status Filter Tabs (with 'همه' tab)!
+              - In standard Kanban board: Show Category Filter Pills. */}
+          {isCategoryFromSidebar ? (
+            <TaskStatusFilterBar
+              statusColumns={STATUS_COLUMNS}
+              selectedStatus={selectedStatusFilter}
+              onSelectStatus={(st) => setSelectedStatusFilter(st)}
+              tasks={categoryScopedTasks}
+              t={t}
+            />
+          ) : viewMode === 'list' ? (
+            <div className="space-y-3">
+              <TaskStatusFilterBar
+                statusColumns={STATUS_COLUMNS}
+                selectedStatus={selectedStatusFilter}
+                onSelectStatus={(st) => setSelectedStatusFilter(st)}
+                tasks={categoryScopedTasks}
+                t={t}
+              />
+              {sidebarFilter === 'all' && categories.length > 0 && (
+                <TaskCategoryFilterBar
+                  categories={categories}
+                  selectedCategory={selectedCategoryFilter}
+                  onSelectCategory={(catId) => setSelectedCategoryFilter(catId)}
+                  tasks={allTasks}
+                  t={t}
+                />
+              )}
+            </div>
+          ) : (
+            sidebarFilter === 'all' && (
+              <TaskCategoryFilterBar
+                categories={categories}
+                selectedCategory={selectedCategoryFilter}
+                onSelectCategory={(catId) => setSelectedCategoryFilter(catId)}
+                tasks={allTasks}
+                t={t}
+              />
+            )
+          )}
 
           {/* 4. Tasks Presentation */}
           {loading ? (

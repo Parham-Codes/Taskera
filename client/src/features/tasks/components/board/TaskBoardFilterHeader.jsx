@@ -16,7 +16,18 @@ export const TaskBoardFilterHeader = ({
     <div className="p-4 rounded-2xl glass-panel border border-slate-200/90 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-xs">
       <div className="flex items-center gap-3">
         <div
-          className={`w-9 h-9 rounded-xl flex items-center justify-center border ${filterMeta.color}`}
+          className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+            filterMeta.customColor ? '' : filterMeta.color
+          }`}
+          style={
+            filterMeta.customColor
+              ? {
+                  backgroundColor: `${filterMeta.customColor}20`,
+                  borderColor: `${filterMeta.customColor}40`,
+                  color: filterMeta.customColor,
+                }
+              : undefined
+          }
         >
           {FilterIcon && <FilterIcon className="w-5 h-5" />}
         </div>
