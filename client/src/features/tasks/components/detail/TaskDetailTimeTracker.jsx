@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Square, Loader2, History, Clock } from 'lucide-react';
+import { Play, Pause, Square, Loader2, History, Clock } from 'lucide-react';
 import {
   formatStopwatch,
   formatDurationText,
@@ -10,23 +10,31 @@ import {
 export const TaskDetailTimeTracker = ({
   task,
   activeSession,
+  isPaused = false,
+  activeSubtaskId = null,
   elapsedSeconds,
   timerBusy,
   onStartTimer,
+  onPauseTimer,
   onStopTimer,
   lang,
   t,
 }) => {
   const completedLogs = (task.timeLogs || []).filter((l) => l.endTime);
+  const activeSubtask = activeSubtaskId
+    ? task.subtasks?.find((s) => String(s._id) === String(activeSubtaskId))
+    : null;
 
   return (
     <div className="glass-panel rounded-2xl p-4 sm:p-5 border border-brand-500/30 relative overflow-hidden space-y-4 shadow-sm">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div
             className={`w-3 h-3 rounded-full ${
               activeSession
                 ? 'bg-emerald-500 animate-ping'
+                : isPaused
+                ? 'bg-amber-500'
                 : 'bg-slate-400 dark:bg-slate-600'
             }`}
           />
@@ -35,22 +43,46 @@ export const TaskDetailTimeTracker = ({
           </h3>
         </div>
 
-        {activeSession && (
-          <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-            {t('timerRunning')}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {activeSubtask && (
+            <span className="text-[10px] sm:text-[11px] font-medium text-brand-600 dark:text-brand-400 bg-brand-500/10 px-2.5 py-0.5 rounded-full border border-brand-500/20 max-w-[200px] truncate">
+              {t('trackingSubtask')} {activeSubtask.title}
+            </span>
+          )}
+
+          {activeSession && (
+            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+              {t('timerRunning')}
+            </span>
+          )}
+
+          {isPaused && (
+            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+              {t('timerPaused')}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Stopwatch Display & Big Play/Stop Controls */}
+      {/* Stopwatch Display & Big Play/Pause/Stop Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center bg-slate-500/5 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
         {/* Live Clock Digits */}
-        <div className="sm:col-span-7 flex flex-col items-center sm:items-start">
+        <div className="sm:col-span-6 flex flex-col items-center sm:items-start">
           <span className="text-[11px] font-semibold text-slate-400 mb-1">
-            {activeSession ? t('timerRunning') : t('duration')}
+            {activeSession
+              ? t('timerRunning')
+              : isPaused
+              ? t('timerPaused')
+              : t('duration')}
           </span>
           <div
-            className="font-mono text-3xl sm:text-4xl font-extrabold tracking-wider text-slate-900 dark:text-white"
+            className={`font-mono text-3xl sm:text-4xl font-extrabold tracking-wider ${
+              activeSession
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : isPaused
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-slate-900 dark:text-white'
+            }`}
             dir="ltr"
           >
             {formatStopwatch(elapsedSeconds)}
@@ -58,12 +90,12 @@ export const TaskDetailTimeTracker = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="sm:col-span-5 flex items-center justify-center sm:justify-end gap-2.5">
-          {!activeSession ? (
+        <div className="sm:col-span-6 flex flex-wrap items-center justify-center sm:justify-end gap-2">
+          {!activeSession && !isPaused ? (
             <button
-              onClick={onStartTimer}
+              onClick={() => onStartTimer(activeSubtaskId)}
               disabled={timerBusy}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
             >
               {timerBusy ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -72,19 +104,74 @@ export const TaskDetailTimeTracker = ({
               )}
               <span>{t('startTimer')}</span>
             </button>
+          ) : activeSession ? (
+            <>
+              {/* Pause Button */}
+              <button
+                type="button"
+                onClick={() => onPauseTimer(activeSubtaskId)}
+                disabled={timerBusy}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold text-amber-900 dark:text-amber-100 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] transition-all shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+                title={t('pauseTimer')}
+              >
+                {timerBusy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Pause className="w-4 h-4 fill-current" />
+                )}
+                <span>{t('pauseTimer')}</span>
+              </button>
+
+              {/* Stop & Log Button */}
+              <button
+                type="button"
+                onClick={() => onStopTimer(activeSubtaskId)}
+                disabled={timerBusy}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-[0.98] transition-all shadow-md shadow-rose-600/25 disabled:opacity-50 cursor-pointer"
+                title={t('stopTimer')}
+              >
+                {timerBusy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Square className="w-4 h-4 fill-current" />
+                )}
+                <span>{t('stopTimer')}</span>
+              </button>
+            </>
           ) : (
-            <button
-              onClick={onStopTimer}
-              disabled={timerBusy}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-[0.98] transition-all shadow-md shadow-rose-600/25 disabled:opacity-50"
-            >
-              {timerBusy ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Square className="w-4 h-4 fill-current" />
-              )}
-              <span>{t('stopTimer')}</span>
-            </button>
+            <>
+              {/* Resume Button */}
+              <button
+                type="button"
+                onClick={() => onStartTimer(activeSubtaskId)}
+                disabled={timerBusy}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
+                title={t('resumeTimer')}
+              >
+                {timerBusy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current" />
+                )}
+                <span>{t('resumeTimer')}</span>
+              </button>
+
+              {/* Stop Button */}
+              <button
+                type="button"
+                onClick={() => onStopTimer(activeSubtaskId)}
+                disabled={timerBusy}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-[0.98] transition-all shadow-md shadow-rose-600/25 disabled:opacity-50 cursor-pointer"
+                title={t('stopTimer')}
+              >
+                {timerBusy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Square className="w-4 h-4 fill-current" />
+                )}
+                <span>{t('stopTimer')}</span>
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { formatTaskDate } from '../../utils/taskHelpers.js';
 
 export const TaskDetailComments = ({
   comments = [],
+  currentUser = null,
   currentUserId,
   onDeleteComment,
   deletingCommentId = null,
@@ -25,6 +26,8 @@ export const TaskDetailComments = ({
     setNewComment('');
     await onSendComment(content);
   };
+
+  const isRtl = lang === 'fa';
 
   return (
     <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800 space-y-3">
@@ -70,49 +73,60 @@ export const TaskDetailComments = ({
       </div>
 
       {/* Comments List */}
-      <div className="max-h-56 overflow-y-auto space-y-2.5 pe-1">
+      <div className="max-h-64 overflow-y-auto space-y-3 pe-1 flex flex-col">
         {comments.length === 0 ? (
           <p className="text-xs text-slate-400 py-3 text-center">
             {t('noComments')}
           </p>
         ) : (
           comments.map((c) => {
-            const isMine = (c.author?._id || c.author) === currentUserId;
+            const author = c.authorId || c.author;
+            const authorId = author?._id || author;
+            const isMine = String(authorId) === String(currentUserId || currentUser?.id);
+            const authorName = author?.name || (isMine ? (currentUser?.name || t('you')) : 'کاربر');
+
+            // In RTL: justify-end places on LEFT, justify-start places on RIGHT
+            // In LTR: justify-start places on LEFT, justify-end places on RIGHT
+            const alignClass = isRtl
+              ? (isMine ? 'justify-end' : 'justify-start')
+              : (isMine ? 'justify-start' : 'justify-end');
+
             return (
-              <div
-                key={c._id}
-                className={`p-3 rounded-xl text-xs space-y-1.5 ${
-                  isMine
-                    ? 'glass-panel border-brand-500/30 ms-4'
-                    : 'bg-slate-100/70 dark:bg-slate-800/40 me-4'
-                }`}
-              >
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {c.author?.name || t('you')}
-                  </span>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span>{formatTaskDate(c.createdAt, lang)}</span>
-                    {isMine && (
-                      <button
-                        type="button"
-                        disabled={deletingCommentId === c._id}
-                        onClick={() => onDeleteComment(c._id)}
-                        className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                        title={t('delete')}
-                      >
-                        {deletingCommentId === c._id ? (
-                          <Loader2 className="w-3 h-3 animate-spin text-red-500" />
-                        ) : (
-                          <Trash2 className="w-3 h-3" />
-                        )}
-                      </button>
-                    )}
+              <div key={c._id} className={`flex w-full ${alignClass}`}>
+                <div
+                  className={`max-w-[85%] sm:max-w-[78%] p-3 rounded-2xl text-xs space-y-1.5 shadow-2xs border transition-all ${
+                    isMine
+                      ? 'bg-brand-500/10 dark:bg-brand-500/20 border-brand-500/30 text-slate-900 dark:text-slate-100 rounded-bl-xs'
+                      : 'bg-slate-100/90 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/60 text-slate-800 dark:text-slate-200 rounded-br-xs'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3 text-[11px]">
+                    <span className="font-bold truncate text-slate-800 dark:text-slate-200">
+                      {authorName} {isMine && <span className="opacity-60 font-normal">({t('you')})</span>}
+                    </span>
+                    <div className="flex items-center gap-2 text-slate-400 shrink-0">
+                      <span>{formatTaskDate(c.createdAt, lang)}</span>
+                      {isMine && (
+                        <button
+                          type="button"
+                          disabled={deletingCommentId === c._id}
+                          onClick={() => onDeleteComment(c._id)}
+                          className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
+                          title={t('delete')}
+                        >
+                          {deletingCommentId === c._id ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-red-500" />
+                          ) : (
+                            <Trash2 className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  <p className="text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed break-words">
+                    {c.content}
+                  </p>
                 </div>
-                <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line">
-                  {c.content}
-                </p>
               </div>
             );
           })

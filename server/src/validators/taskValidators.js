@@ -36,6 +36,7 @@ export const createTaskSchema = z.object({
           title: z.string().trim().min(1, 'Subtask title cannot be empty').max(200),
           completed: z.boolean().optional().default(false),
           completedAt: z.union([z.string(), z.date()]).nullable().optional(),
+          totalTimeSpent: z.number().nonnegative().optional().default(0),
         })
       )
       .optional()
@@ -67,6 +68,7 @@ export const updateTaskSchema = z.object({
           title: z.string().trim().min(1).max(200),
           completed: z.boolean().optional(),
           completedAt: z.union([z.string(), z.date()]).nullable().optional(),
+          totalTimeSpent: z.number().nonnegative().optional(),
         })
       )
       .optional(),

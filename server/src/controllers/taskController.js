@@ -115,13 +115,14 @@ export const deleteTask = async (req, res, next) => {
 
 /**
  * POST /api/tasks/:taskId/time/start
- * Start Time Tracking for a Task
+ * Start Time Tracking for a Task or Subtask
  */
 export const startTimeTracking = async (req, res, next) => {
   try {
     const result = await taskTimeService.startTimeTracking({
       taskId: req.params.taskId,
       user: req.user,
+      subtaskId: req.body?.subtaskId || null,
     });
 
     const statusCode = result.alreadyRunning ? 200 : 201;
@@ -145,14 +146,36 @@ export const startTimeTracking = async (req, res, next) => {
 };
 
 /**
+ * POST /api/tasks/:taskId/time/pause
+ * Pause Time Tracking for a Task or Subtask
+ */
+export const pauseTimeTracking = async (req, res, next) => {
+  try {
+    const result = await taskTimeService.pauseTimeTracking({
+      taskId: req.params.taskId,
+      user: req.user,
+      subtaskId: req.body?.subtaskId || null,
+    });
+
+    return successResponse(res, {
+      message: 'Timer paused and interval recorded successfully',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/tasks/:taskId/time/stop
- * Stop Time Tracking for a Task
+ * Stop Time Tracking for a Task or Subtask
  */
 export const stopTimeTracking = async (req, res, next) => {
   try {
     const result = await taskTimeService.stopTimeTracking({
       taskId: req.params.taskId,
       user: req.user,
+      subtaskId: req.body?.subtaskId || null,
     });
 
     return successResponse(res, {

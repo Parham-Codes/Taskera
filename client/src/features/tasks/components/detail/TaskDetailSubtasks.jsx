@@ -1,12 +1,32 @@
 import React, { useState } from 'react';
-import { CheckSquare, Check, Trash2, Plus } from 'lucide-react';
+import {
+  CheckSquare,
+  Check,
+  Trash2,
+  Plus,
+  Play,
+  Pause,
+  Square,
+  Clock,
+  Loader2,
+} from 'lucide-react';
+import { formatStopwatch, formatDurationText } from '../../utils/taskHelpers.js';
 
 export const TaskDetailSubtasks = ({
   subtasks = [],
+  activeSubtaskId = null,
+  isPaused = false,
+  activeSession = null,
+  subtaskElapsedSeconds = 0,
+  timerBusy = false,
+  onStartSubtaskTimer,
+  onPauseSubtaskTimer,
+  onStopSubtaskTimer,
   onToggleSubtask,
   onDeleteSubtask,
   onAddSubtask,
   addingSubtask,
+  lang,
   t,
 }) => {
   const [newSubtaskInput, setNewSubtaskInput] = useState('');
@@ -53,46 +73,147 @@ export const TaskDetailSubtasks = ({
 
       {/* Subtasks List */}
       <div className="space-y-2 pt-1">
-        {subtasks.map((st, idx) => (
-          <div
-            key={st._id || idx}
-            className="flex items-center justify-between p-2.5 rounded-2xl glass-input hover:border-brand-500/30 transition-colors text-xs"
-          >
-            <button
-              type="button"
-              onClick={() => onToggleSubtask(st._id, idx)}
-              className="flex items-center gap-2.5 text-start min-w-0 flex-1"
-            >
-              <div
-                className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
-                  st.completed
-                    ? 'bg-brand-500 border-brand-500 text-white'
-                    : 'border-slate-300 dark:border-slate-600 hover:border-brand-500'
-                }`}
-              >
-                {st.completed && <Check className="w-3 h-3" />}
-              </div>
-              <span
-                className={`font-medium truncate ${
-                  st.completed
-                    ? 'line-through text-slate-400 dark:text-slate-500'
-                    : 'text-slate-800 dark:text-slate-200'
-                }`}
-              >
-                {st.title}
-              </span>
-            </button>
+        {subtasks.map((st, idx) => {
+          const isThisActive =
+            activeSession && String(activeSession.subtaskId) === String(st._id);
+          const isThisPaused =
+            isPaused && String(activeSubtaskId) === String(st._id);
+          const hasLoggedTime = (st.totalTimeSpent || 0) > 0;
 
-            <button
-              type="button"
-              onClick={() => onDeleteSubtask(st._id, idx)}
-              className="p-1 text-slate-400 hover:text-red-500 transition-colors ms-2"
-              title={t('delete')}
+          return (
+            <div
+              key={st._id || idx}
+              className={`flex items-center justify-between p-2.5 rounded-2xl glass-input transition-all text-xs gap-2 ${
+                isThisActive
+                  ? 'border-emerald-500/50 bg-emerald-500/5 ring-1 ring-emerald-500/30'
+                  : isThisPaused
+                  ? 'border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/30'
+                  : 'hover:border-brand-500/30'
+              }`}
             >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
+              {/* Checkbox & Title */}
+              <button
+                type="button"
+                onClick={() => onToggleSubtask(st._id, idx)}
+                className="flex items-center gap-2.5 text-start min-w-0 flex-1 cursor-pointer"
+              >
+                <div
+                  className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                    st.completed
+                      ? 'bg-brand-500 border-brand-500 text-white'
+                      : 'border-slate-300 dark:border-slate-600 hover:border-brand-500'
+                  }`}
+                >
+                  {st.completed && <Check className="w-3 h-3" />}
+                </div>
+                <span
+                  className={`font-medium truncate ${
+                    st.completed
+                      ? 'line-through text-slate-400 dark:text-slate-500'
+                      : 'text-slate-800 dark:text-slate-200'
+                  }`}
+                >
+                  {st.title}
+                </span>
+              </button>
+
+              {/* Subtask Time Badge & Controls */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Active Live Stopwatch */}
+                {isThisActive && (
+                  <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-xl text-emerald-600 dark:text-emerald-400 font-mono text-[11px] font-bold">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    <span dir="ltr">{formatStopwatch(subtaskElapsedSeconds)}</span>
+                  </div>
+                )}
+
+                {/* Paused Badge */}
+                {isThisPaused && (
+                  <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-xl text-amber-600 dark:text-amber-400 font-mono text-[11px] font-bold">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    <span dir="ltr">{formatStopwatch(subtaskElapsedSeconds)}</span>
+                  </div>
+                )}
+
+                {/* Static Logged Time when idle */}
+                {!isThisActive && !isThisPaused && hasLoggedTime && (
+                  <span
+                    className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-lg font-medium"
+                    title={t('totalTimeSpent')}
+                  >
+                    <Clock className="w-3 h-3 text-brand-500" />
+                    <span>{formatDurationText(st.totalTimeSpent, lang, t)}</span>
+                  </span>
+                )}
+
+                {/* Timer Control Buttons per Subtask */}
+                {isThisActive ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={timerBusy}
+                      onClick={() => onPauseSubtaskTimer(st._id)}
+                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                      title={t('pauseSubtaskTimer')}
+                    >
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={timerBusy}
+                      onClick={() => onStopSubtaskTimer(st._id)}
+                      className="p-1 rounded-lg text-rose-600 hover:bg-rose-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                      title={t('stopSubtaskTimer')}
+                    >
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  </>
+                ) : isThisPaused ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={timerBusy}
+                      onClick={() => onStartSubtaskTimer(st._id)}
+                      className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                      title={t('resumeSubtaskTimer')}
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={timerBusy}
+                      onClick={() => onStopSubtaskTimer(st._id)}
+                      className="p-1 rounded-lg text-rose-600 hover:bg-rose-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                      title={t('stopSubtaskTimer')}
+                    >
+                      <Square className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={timerBusy}
+                    onClick={() => onStartSubtaskTimer(st._id)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                    title={t('startSubtaskTimer')}
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Delete Subtask Button */}
+                <button
+                  type="button"
+                  onClick={() => onDeleteSubtask(st._id, idx)}
+                  className="p-1 text-slate-400 hover:text-red-500 transition-colors ms-0.5 cursor-pointer"
+                  title={t('delete')}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
         {/* Add New Subtask Input inside modal */}
         <div className="flex gap-2 pt-1">

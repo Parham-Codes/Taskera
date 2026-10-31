@@ -117,6 +117,10 @@ const taskSchema = new mongoose.Schema(
           type: Date,
           default: null,
         },
+        totalTimeSpent: {
+          type: Number,
+          default: 0, // In seconds
+        },
       },
     ],
     tags: {
@@ -133,6 +137,10 @@ const taskSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: 'User',
           required: true,
+        },
+        subtaskId: {
+          type: mongoose.Schema.Types.ObjectId,
+          default: null,
         },
         startTime: {
           type: Date,

@@ -218,40 +218,65 @@ export const CommentDrawer = ({ isOpen, onClose, task }) => {
             </div>
           ) : (
             comments.map((comment) => {
-              const isMe = comment.authorId?._id === user?.id;
+              const authorObj = comment.authorId || comment.author;
+              const authorId = authorObj?._id || authorObj;
+              const isMe = String(authorId) === String(user?.id);
+              const authorName = authorObj?.name || (isMe ? (user?.name || t('you')) : 'کاربر');
+              const isRtl = lang === 'fa';
+              const alignClass = isRtl
+                ? (isMe ? 'justify-end' : 'justify-start')
+                : (isMe ? 'justify-start' : 'justify-end');
 
               return (
-                <div key={comment._id} className="group flex gap-2.5 items-start">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-500 to-indigo-600 flex items-center justify-center text-white text-xs font-semibold shrink-0 mt-0.5">
-                    {comment.authorId?.name ? comment.authorId.name[0].toUpperCase() : 'U'}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-bold truncate">
-                        {comment.authorId?.name} {isMe && <span className="opacity-60 font-normal">({t('you')})</span>}
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] text-slate-400">{formatDate(comment.createdAt)}</span>
-                        {isMe && (
-                          <button
-                            type="button"
-                            disabled={deletingCommentId === comment._id}
-                            onClick={() => handleRequestDeleteComment(comment._id)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 transition-opacity disabled:opacity-100"
-                            title={t('delete')}
-                          >
-                            {deletingCommentId === comment._id ? (
-                              <Loader2 className="w-3 h-3 animate-spin text-red-500" />
-                            ) : (
-                              <Trash2 className="w-3 h-3" />
-                            )}
-                          </button>
-                        )}
-                      </div>
+                <div key={comment._id} className={`flex w-full ${alignClass}`}>
+                  <div
+                    className={`max-w-[85%] sm:max-w-[80%] flex gap-2.5 items-start ${
+                      isMe ? 'flex-row-reverse' : 'flex-row'
+                    }`}
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-semibold shrink-0 mt-0.5 shadow-2xs ${
+                        isMe
+                          ? 'bg-gradient-to-tr from-brand-500 to-indigo-600'
+                          : 'bg-slate-400 dark:bg-slate-600'
+                      }`}
+                    >
+                      {authorName ? authorName[0].toUpperCase() : 'U'}
                     </div>
-                    <div className="mt-1 p-3 rounded-2xl glass-panel text-xs leading-relaxed break-words border border-slate-200/80 dark:border-slate-800">
-                      {comment.content}
+
+                    <div className="flex-1 min-w-0">
+                      <div className={`flex items-center gap-1.5 ${isMe ? 'justify-end' : 'justify-between'}`}>
+                        <span className="text-xs font-bold truncate">
+                          {authorName} {isMe && <span className="opacity-60 font-normal">({t('you')})</span>}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] text-slate-400">{formatDate(comment.createdAt)}</span>
+                          {isMe && (
+                            <button
+                              type="button"
+                              disabled={deletingCommentId === comment._id}
+                              onClick={() => handleRequestDeleteComment(comment._id)}
+                              className="p-0.5 text-slate-400 hover:text-red-500 transition-opacity disabled:opacity-100 cursor-pointer"
+                              title={t('delete')}
+                            >
+                              {deletingCommentId === comment._id ? (
+                                <Loader2 className="w-3 h-3 animate-spin text-red-500" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div
+                        className={`mt-1 p-3 rounded-2xl text-xs leading-relaxed break-words border transition-all ${
+                          isMe
+                            ? 'bg-brand-500/10 dark:bg-brand-500/20 border-brand-500/30 text-slate-900 dark:text-slate-100 rounded-bl-xs'
+                            : 'bg-slate-100/90 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-br-xs'
+                        }`}
+                      >
+                        {comment.content}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -7,6 +7,7 @@ import {
   updateTask,
   deleteTask,
   startTimeTracking,
+  pauseTimeTracking,
   stopTimeTracking,
   toggleSubtask,
 } from '../controllers/taskController.js';
@@ -24,6 +25,7 @@ router.use('/:taskId/comments', commentRoutes);
 
 // Time tracking
 router.post('/:taskId/time/start', startTimeTracking);
+router.post('/:taskId/time/pause', pauseTimeTracking);
 router.post('/:taskId/time/stop', stopTimeTracking);
 
 // Subtask status toggle

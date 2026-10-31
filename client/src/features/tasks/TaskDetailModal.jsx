@@ -55,9 +55,12 @@ export const TaskDetailModal = ({
   // Custom Time Tracking Hook
   const {
     activeSession,
+    isPaused,
+    activeSubtaskId,
     elapsedSeconds,
     timerBusy,
     startTimer,
+    pauseTimer,
     stopTimer,
   } = useTaskTimer({
     task,
@@ -308,9 +311,12 @@ export const TaskDetailModal = ({
           <TaskDetailTimeTracker
             task={task}
             activeSession={activeSession}
+            isPaused={isPaused}
+            activeSubtaskId={activeSubtaskId}
             elapsedSeconds={elapsedSeconds}
             timerBusy={timerBusy}
             onStartTimer={startTimer}
+            onPauseTimer={pauseTimer}
             onStopTimer={stopTimer}
             lang={lang}
             t={t}
@@ -319,10 +325,19 @@ export const TaskDetailModal = ({
           {/* 3. Subtasks / Checklist */}
           <TaskDetailSubtasks
             subtasks={task.subtasks || []}
+            activeSubtaskId={activeSubtaskId}
+            isPaused={isPaused}
+            activeSession={activeSession}
+            subtaskElapsedSeconds={elapsedSeconds}
+            timerBusy={timerBusy}
+            onStartSubtaskTimer={(stId) => startTimer(stId)}
+            onPauseSubtaskTimer={(stId) => pauseTimer(stId)}
+            onStopSubtaskTimer={(stId) => stopTimer(stId)}
             onToggleSubtask={handleToggleSubtask}
             onDeleteSubtask={handleDeleteSubtask}
             onAddSubtask={handleAddNewSubtask}
             addingSubtask={addingSubtask}
+            lang={lang}
             t={t}
           />
 
@@ -379,6 +394,7 @@ export const TaskDetailModal = ({
           {/* 5. Integrated Comments & Discussion */}
           <TaskDetailComments
             comments={comments}
+            currentUser={user}
             currentUserId={user?.id}
             onDeleteComment={handleRequestDeleteComment}
             deletingCommentId={deletingCommentId}
