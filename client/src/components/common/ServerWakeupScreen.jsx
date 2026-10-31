@@ -11,6 +11,7 @@ import {
   Clock,
   Sparkles,
 } from 'lucide-react';
+import { TaskeraLogo } from './TaskeraLogo.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
 import { useTheme } from '../../context/ThemeContext.jsx';
 
@@ -82,9 +83,17 @@ export const ServerWakeupScreen = ({
         {/* --- STATE 1: INITIAL CONNECTING (0 - 4s) --- */}
         {status === 'connecting' && (
           <div className="flex flex-col items-center py-4">
-            <div className="relative w-16 h-16 mb-5 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-brand-500/20 animate-pulse" />
-              <div className="w-12 h-12 rounded-full border-3 border-brand-500 border-t-transparent animate-spin" />
+            <div className="relative w-20 h-20 mb-5 flex items-center justify-center">
+              {/* Outer soft pulse ring */}
+              <div className="absolute inset-0 rounded-full border-4 border-brand-500/20 dark:border-brand-500/30 animate-pulse" />
+              {/* Outer spinning border ring */}
+              <div className="w-16 h-16 rounded-full border-3 border-brand-500 border-t-transparent animate-spin" />
+              {/* Centered Taskera Logo */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shadow-md shadow-brand-500/30">
+                  <TaskeraLogo className="w-full h-full" idPrefix="wakeup-loader" />
+                </div>
+              </div>
             </div>
             <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-1">
               {t('serverConnecting')}
