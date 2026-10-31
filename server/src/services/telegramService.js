@@ -865,8 +865,9 @@ export const sendTelegramRemovalApprovalRequest = async ({
   memberRole,
   requestId,
   clientUrl: customClientUrl,
+  botToken,
 }) => {
-  const token = getApprovalBotToken();
+  const token = (botToken && botToken.trim()) || getApprovalBotToken();
   if (!token) {
     return { success: false, reason: 'NO_APPROVAL_BOT_TOKEN', isConfirmedFailure: true };
   }

@@ -71,7 +71,15 @@ export const TopHeader = ({
       }
     };
 
-    const handleScroll = () => {
+    const handleScroll = (e) => {
+      const target = e.target;
+      // If the scroll event originated inside any of the open menus, do NOT close them!
+      if (target instanceof Element) {
+        if (notificationsMenuRef.current?.contains(target)) return;
+        if (priorityMenuRef.current?.contains(target)) return;
+        if (moreMenuRef.current?.contains(target)) return;
+      }
+
       setPriorityMenuOpen(false);
       setNotificationsMenuOpen(false);
       setMoreMenuOpen(false);
@@ -533,7 +541,7 @@ export const TopHeader = ({
               </div>
 
               {/* Notification Items */}
-              <div className="max-h-80 overflow-y-auto space-y-1.5 pe-1 text-xs">
+              <div className="max-h-80 overflow-y-auto space-y-1.5 pe-1 text-xs overscroll-contain">
                 {notifications.length === 0 ? (
                   <div className="py-8 text-center text-slate-400 text-xs">
                     {t('noNotifications')}

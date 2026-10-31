@@ -428,6 +428,7 @@ export const createMemberRemovalRequest = async (req, res, next) => {
         if (ownerUser?.telegramSettings?.chatId) {
           const tgResult = await sendTelegramRemovalApprovalRequest({
             ownerChatId: ownerUser.telegramSettings.chatId,
+            botToken: ownerUser.telegramSettings.botToken,
             orgName: organization.name,
             orgId: organization._id,
             requesterName: req.user.name,
