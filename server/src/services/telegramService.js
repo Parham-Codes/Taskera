@@ -107,7 +107,7 @@ const scheduleBotSend = async (token, fn) => {
 /**
  * Perform single HTTP dispatch with timeout, 429 retry policy, and sanitized error logging
  */
-const sendTelegramHttpRequest = async ({ token, targetChatId, message }) => {
+const sendTelegramHttpRequest = async ({ token, targetChatId, message, replyMarkup }) => {
   const endpoint = `https://api.telegram.org/bot${token}/sendMessage`;
 
   let attempt = 0;
@@ -118,15 +118,21 @@ const sendTelegramHttpRequest = async ({ token, targetChatId, message }) => {
     }, currentQueueConfig.requestTimeoutMs);
 
     try {
+      const requestPayload = {
+        chat_id: targetChatId,
+        text: message,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      };
+
+      if (replyMarkup) {
+        requestPayload.reply_markup = replyMarkup;
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: targetChatId,
-          text: message,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-        }),
+        body: JSON.stringify(requestPayload),
         signal: controller.signal,
       });
 
@@ -349,7 +355,7 @@ const enqueueChatMessage = async (token, targetChatId, chatKey, sendFn) => {
  * @param {string} params.chatId - Telegram user/group chat ID
  * @param {string} params.message - HTML formatted message body
  */
-export const sendTelegramMessage = async ({ botToken, chatId, message }) => {
+export const sendTelegramMessage = async ({ botToken, chatId, message, replyMarkup }) => {
   const token = (botToken && botToken.trim()) || process.env.TELEGRAM_BOT_TOKEN;
   const targetChatId = chatId && chatId.trim();
 
@@ -365,7 +371,7 @@ export const sendTelegramMessage = async ({ botToken, chatId, message }) => {
 
   const chatKey = `${token}:${targetChatId}`;
   return enqueueChatMessage(token, targetChatId, chatKey, () =>
-    sendTelegramHttpRequest({ token, targetChatId, message })
+    sendTelegramHttpRequest({ token, targetChatId, message, replyMarkup })
   );
 };
 
@@ -728,5 +734,197 @@ export const notifyTaskCommentOnTelegram = async ({
     const cleanReason = sanitizeTelegramErrorMessage(error.message, botToken);
     return { success: false, reason: cleanReason, isConfirmedFailure: false, isUnknown: true };
   }
+};
+
+/**
+ * Retrieve the designated shared bot token for Taskera removal approvals
+ */
+export const getApprovalBotToken = () => {
+  return (
+    (process.env.TASKERA_APPROVAL_BOT_TOKEN && process.env.TASKERA_APPROVAL_BOT_TOKEN.trim()) ||
+    (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_BOT_TOKEN.trim()) ||
+    ''
+  );
+};
+
+/**
+ * Answer an incoming Telegram callback query (acknowledge button click)
+ */
+export const answerTelegramCallbackQuery = async ({
+  botToken,
+  callbackQueryId,
+  text = '',
+  showAlert = false,
+}) => {
+  const token = (botToken && botToken.trim()) || getApprovalBotToken();
+  if (!token || !callbackQueryId) {
+    return { success: false, reason: 'MISSING_PARAM', isConfirmedFailure: true };
+  }
+
+  const endpoint = `https://api.telegram.org/bot${token}/answerCallbackQuery`;
+
+  return scheduleBotSend(token, async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, currentQueueConfig.requestTimeoutMs);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callback_query_id: callbackQueryId,
+          text: text ? String(text) : undefined,
+          show_alert: Boolean(showAlert),
+        }),
+        signal: controller.signal,
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || (data && !data.ok)) {
+        const cleanDesc = sanitizeTelegramErrorMessage(data?.description || `HTTP ${response.status}`, token);
+        return { success: false, reason: cleanDesc };
+      }
+      return { success: true, result: data.result };
+    } catch (err) {
+      const cleanReason = sanitizeTelegramErrorMessage(err.message, token);
+      return { success: false, reason: cleanReason };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  });
+};
+
+/**
+ * Edit message text and inline keyboard in Telegram (e.g. after approval to prevent re-click)
+ */
+export const editTelegramMessageText = async ({
+  botToken,
+  chatId,
+  messageId,
+  text,
+  replyMarkup = null,
+}) => {
+  const token = (botToken && botToken.trim()) || getApprovalBotToken();
+  if (!token || !chatId || !messageId || !text) {
+    return { success: false, reason: 'MISSING_PARAM', isConfirmedFailure: true };
+  }
+
+  const endpoint = `https://api.telegram.org/bot${token}/editMessageText`;
+
+  return scheduleBotSend(token, async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, currentQueueConfig.requestTimeoutMs);
+
+    try {
+      const body = {
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      };
+      if (replyMarkup !== null) {
+        body.reply_markup = replyMarkup;
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || (data && !data.ok)) {
+        const cleanDesc = sanitizeTelegramErrorMessage(data?.description || `HTTP ${response.status}`, token);
+        return { success: false, reason: cleanDesc };
+      }
+      return { success: true, result: data.result };
+    } catch (err) {
+      const cleanReason = sanitizeTelegramErrorMessage(err.message, token);
+      return { success: false, reason: cleanReason };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  });
+};
+
+/**
+ * Dispatch an interactive member removal approval request to the organization Owner
+ */
+export const sendTelegramRemovalApprovalRequest = async ({
+  ownerChatId,
+  orgName,
+  orgId,
+  requesterName,
+  memberName,
+  memberRole,
+  requestId,
+  clientUrl: customClientUrl,
+}) => {
+  const token = getApprovalBotToken();
+  if (!token) {
+    return { success: false, reason: 'NO_APPROVAL_BOT_TOKEN', isConfirmedFailure: true };
+  }
+  if (!ownerChatId) {
+    return { success: false, reason: 'NO_OWNER_CHAT_ID', isConfirmedFailure: true };
+  }
+
+  let baseClientUrl =
+    (customClientUrl && customClientUrl.trim()) ||
+    (process.env.APP_URL && process.env.APP_URL.trim()) ||
+    (process.env.CLIENT_URL && process.env.CLIENT_URL.trim()) ||
+    'https://parham-codes.github.io/Taskera';
+
+  baseClientUrl = baseClientUrl.replace(/\/+$/, '');
+  if (baseClientUrl.includes('github.io') && !baseClientUrl.endsWith('/Taskera')) {
+    baseClientUrl = `${baseClientUrl}/Taskera`;
+  }
+
+  const detailUrl = `${baseClientUrl}/teams/${orgId}?memberRemovalRequest=${requestId}`;
+  const dateStr = new Date().toLocaleString('fa-IR');
+  const roleLabel = memberRole === 'manager' ? 'مدیر (Manager)' : 'عضو عادی (Member)';
+
+  const message = [
+    `⚠️ <b>درخواست حذف عضو از سازمان</b>`,
+    ``,
+    `مدیر سازمان درخواستی برای حذف یک عضو ثبت کرده است:`,
+    ``,
+    `🏢 <b>سازمان:</b> ${escapeHtml(orgName)}`,
+    `👤 <b>درخواست‌دهنده:</b> ${escapeHtml(requesterName)}`,
+    `🎯 <b>عضو موردنظر:</b> ${escapeHtml(memberName)} (${roleLabel})`,
+    `🕒 <b>زمان ثبت:</b> ${dateStr}`,
+    `🆔 <b>شناسه درخواست:</b> <code>${escapeHtml(requestId)}</code>`,
+    ``,
+    `شما می‌توانید این درخواست را مستقیماً از طریق دکمه زیر تأیید کنید یا جزئیات آن را در اپلیکیشن تسکرا بررسی نمایید.`,
+  ].join('\n');
+
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        {
+          text: '✅ تأیید حذف عضو',
+          callback_data: `approve_removal:${requestId}`,
+        },
+      ],
+      [
+        {
+          text: '🔎 مشاهده جزئیات در Taskera',
+          url: detailUrl,
+        },
+      ],
+    ],
+  };
+
+  return sendTelegramMessage({
+    botToken: token,
+    chatId: ownerChatId,
+    message,
+    replyMarkup,
+  });
 };
 

@@ -40,6 +40,18 @@ export const csrfProtection = (req, res, next) => {
     return next();
   }
 
+  // 2b. Telegram Bot Webhook endpoint receives server-to-server callbacks verified via X-Telegram-Bot-Api-Secret-Token
+  const originalUrl = req.originalUrl || '';
+  const isTelegramWebhook =
+    originalUrl === '/api/telegram/approval-webhook' ||
+    originalUrl.startsWith('/api/telegram/approval-webhook?') ||
+    path === '/api/telegram/approval-webhook' ||
+    (baseUrl === '/api/telegram' && (path === '/approval-webhook' || path === 'approval-webhook'));
+
+  if (isTelegramWebhook) {
+    return next();
+  }
+
   // 3. Extract request origin from Origin or Referer header
   const originHeader = req.headers.origin;
   const refererHeader = req.headers.referer;

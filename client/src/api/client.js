@@ -12,6 +12,7 @@ const getBaseURL = () => {
 export const api = axios.create({
   baseURL: getBaseURL(),
   withCredentials: true, // Send httpOnly cookies with requests
+  timeout: 70000, // 70s threshold for cold-starts on Render free tier
   headers: {
     'Content-Type': 'application/json',
   },

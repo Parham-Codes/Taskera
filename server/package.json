@@ -7,7 +7,7 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js && node tests/reminder.test.js && node tests/telegram.test.js && node tests/internalReminders.test.js && node tests/crossOriginAuth.test.js",
+    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js && node tests/reminder.test.js && node tests/telegram.test.js && node tests/internalReminders.test.js && node tests/crossOriginAuth.test.js && node tests/memberRemoval.test.js",
     "test:auth": "node tests/auth.test.js",
     "test:integration": "node tests/integration.test.js",
     "test:rbac": "node tests/rbac.test.js",
@@ -15,6 +15,7 @@
     "test:telegram": "node tests/telegram.test.js",
     "test:internal": "node tests/internalReminders.test.js",
     "test:cross-origin": "node tests/crossOriginAuth.test.js",
+    "test:removal": "node tests/memberRemoval.test.js",
     "dev": "node --watch src/server.js"
   },
   "dependencies": {

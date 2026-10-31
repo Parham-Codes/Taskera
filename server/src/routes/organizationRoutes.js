@@ -5,6 +5,11 @@ import {
   getOrganizationMembers,
   addMember,
   updateMemberRole,
+  removeMemberDirectly,
+  createMemberRemovalRequest,
+  getMemberRemovalRequests,
+  approveMemberRemovalRequest,
+  rejectMemberRemovalRequest,
 } from '../controllers/organizationController.js';
 import { protectAuth } from '../middlewares/auth.js';
 import { requireOrgMember, requireOrgRole } from '../middlewares/rbac.js';
@@ -40,6 +45,47 @@ router.patch(
   requireOrgRole([ORG_ROLES.OWNER]),
   validate(updateMemberRoleSchema),
   updateMemberRole
+);
+
+// Member Removal Endpoints
+// 1. Direct member removal by Organization Owner
+router.delete(
+  '/:orgId/members/:memberId',
+  requireOrgMember,
+  requireOrgRole([ORG_ROLES.OWNER]),
+  removeMemberDirectly
+);
+
+// 2. Submit member removal request (Manager for member, or Owner)
+router.post(
+  '/:orgId/members/:memberId/removal-request',
+  requireOrgMember,
+  requireOrgRole([ORG_ROLES.OWNER, ORG_ROLES.MANAGER]),
+  createMemberRemovalRequest
+);
+
+// 3. List all pending removal requests for the organization
+router.get(
+  '/:orgId/member-removal-requests',
+  requireOrgMember,
+  requireOrgRole([ORG_ROLES.OWNER, ORG_ROLES.MANAGER]),
+  getMemberRemovalRequests
+);
+
+// 4. Approve pending removal request
+router.post(
+  '/:orgId/members/:memberId/removal-request/:requestId/approve',
+  requireOrgMember,
+  requireOrgRole([ORG_ROLES.OWNER, ORG_ROLES.MANAGER]),
+  approveMemberRemovalRequest
+);
+
+// 5. Reject pending removal request
+router.post(
+  '/:orgId/members/:memberId/removal-request/:requestId/reject',
+  requireOrgMember,
+  requireOrgRole([ORG_ROLES.OWNER, ORG_ROLES.MANAGER]),
+  rejectMemberRemovalRequest
 );
 
 export default router;

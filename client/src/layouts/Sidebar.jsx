@@ -18,13 +18,16 @@ import {
   Loader2,
   Tag,
   Send,
+  UserX,
+  UserMinus,
+  Trash2,
 } from 'lucide-react';
 import { useCategories } from '../context/CategoryContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useWorkspace } from '../context/WorkspaceContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useNotifications } from '../context/NotificationContext.jsx';
-import { Modal } from '../components/ui/index.js';
+import { Modal, ConfirmModal } from '../components/ui/index.js';
 import { useLocation } from 'react-router-dom';
 
 export const Sidebar = ({
@@ -37,10 +40,19 @@ export const Sidebar = ({
   onOpenInviteMember,
   onOpenCategoryManager,
   onOpenTelegramSettings,
+  onOpenRemovalRequests,
   taskCounts = {},
 }) => {
   const { user, logout } = useAuth();
-  const { activeWorkspace, workspaces, switchWorkspace, members } = useWorkspace();
+  const {
+    activeWorkspace,
+    workspaces,
+    switchWorkspace,
+    members,
+    pendingRemovalRequests,
+    removeMemberDirect,
+    requestMemberRemoval,
+  } = useWorkspace();
   const { t, lang } = useLanguage();
   const { unreadCount } = useNotifications();
   const { categories = [] } = useCategories();
@@ -48,6 +60,8 @@ export const Sidebar = ({
 
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [memberActionConfirm, setMemberActionConfirm] = useState(null);
+  const [memberActionLoading, setMemberActionLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const workspaceRef = useRef(null);
 
@@ -380,18 +394,40 @@ export const Sidebar = ({
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   {t('teamMembers')} ({members?.length || 0})
                 </span>
-                {['owner', 'manager'].includes(activeWorkspace?.role?.toLowerCase?.()) && (
-                  <button
-                    onClick={() => {
-                      onOpenInviteMember();
-                      onClose?.();
-                    }}
-                    className="p-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40"
-                    title={t('addMemberBtn')}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                )}
+                <div className="flex items-center gap-1">
+                  {/* Pending Removal Requests button with badge */}
+                  {['owner', 'manager'].includes(activeWorkspace?.role?.toLowerCase?.()) &&
+                    Array.isArray(pendingRemovalRequests) &&
+                    pendingRemovalRequests.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onOpenRemovalRequests?.();
+                          onClose?.();
+                        }}
+                        className="p-1 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 relative cursor-pointer"
+                        title={`${t('pendingRemovalRequests')} (${pendingRemovalRequests.length})`}
+                      >
+                        <UserX className="w-3.5 h-3.5" />
+                        <span className="absolute -top-1 -end-1 w-3.5 h-3.5 bg-amber-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
+                          {pendingRemovalRequests.length}
+                        </span>
+                      </button>
+                    )}
+                  {['owner', 'manager'].includes(activeWorkspace?.role?.toLowerCase?.()) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenInviteMember();
+                        onClose?.();
+                      }}
+                      className="p-1 rounded-lg text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 cursor-pointer"
+                      title={t('addMemberBtn')}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -400,11 +436,22 @@ export const Sidebar = ({
                     const memberId = m?.id || m?._id || m?.userId || idx;
                     const memberName = m?.name || m?.email?.split('@')[0] || 'Member';
                     const initial = (m?.name?.[0] || m?.email?.[0] || 'U').toUpperCase();
+                    const userRole = activeWorkspace?.role?.toLowerCase?.();
+                    const isSelf = String(memberId) === String(user?.id || user?._id);
+                    const isOwner = userRole === 'owner';
+                    const isManager = userRole === 'manager';
+                    const targetIsOwner = m?.role === 'owner';
+                    const targetIsManager = m?.role === 'manager';
+                    const hasPending =
+                      m?.removalRequest?.status === 'pending' ||
+                      pendingRemovalRequests?.some(
+                        (pr) => String(pr.member?.id || pr.member?.memberId) === String(memberId)
+                      );
 
                     return (
                       <div
                         key={memberId}
-                        className="flex items-center justify-between px-3 py-1.5 rounded-xl hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
+                        className="group flex items-center justify-between px-3 py-1.5 rounded-xl hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-6 h-6 rounded-lg bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold flex items-center justify-center shrink-0">
@@ -414,9 +461,61 @@ export const Sidebar = ({
                             {memberName}
                           </span>
                         </div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                          {m?.role || 'member'}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                            {m?.role || 'member'}
+                          </span>
+
+                          {/* Member Removal Actions based on RBAC */}
+                          {!isSelf && !targetIsOwner && (
+                            <>
+                              {isOwner && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setMemberActionConfirm({
+                                      type: 'direct_delete',
+                                      memberId,
+                                      memberName,
+                                    })
+                                  }
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all rounded cursor-pointer"
+                                  title={t('removeMember')}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+
+                              {isManager && !targetIsManager && (
+                                <>
+                                  {hasPending ? (
+                                    <span
+                                      className="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium"
+                                      title={t('requestPendingNotice')}
+                                    >
+                                      {t('pendingApproval')}
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setMemberActionConfirm({
+                                          type: 'request_removal',
+                                          memberId,
+                                          memberName,
+                                        })
+                                      }
+                                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all rounded cursor-pointer"
+                                      title={t('requestMemberRemoval')}
+                                    >
+                                      <UserMinus className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     );
                   })
@@ -503,6 +602,48 @@ export const Sidebar = ({
           </div>
         </div>
       </Modal>
+
+      {/* Member Removal Confirmation Modal */}
+      {memberActionConfirm && (
+        <ConfirmModal
+          isOpen={Boolean(memberActionConfirm)}
+          onClose={() => setMemberActionConfirm(null)}
+          title={
+            memberActionConfirm.type === 'direct_delete'
+              ? t('removeMember')
+              : t('requestMemberRemoval')
+          }
+          description={
+            memberActionConfirm.type === 'direct_delete'
+              ? `${t('confirmRemoveMemberDirect')} (${memberActionConfirm.memberName})`
+              : `${t('confirmRequestMemberRemoval')} (${memberActionConfirm.memberName})`
+          }
+          confirmText={
+            memberActionConfirm.type === 'direct_delete'
+              ? t('removeMember')
+              : t('requestMemberRemoval')
+          }
+          cancelText={t('cancel')}
+          variant={memberActionConfirm.type === 'direct_delete' ? 'danger' : 'warning'}
+          icon={memberActionConfirm.type === 'direct_delete' ? Trash2 : UserMinus}
+          loading={memberActionLoading}
+          onConfirm={async () => {
+            setMemberActionLoading(true);
+            try {
+              if (memberActionConfirm.type === 'direct_delete') {
+                await removeMemberDirect(memberActionConfirm.memberId);
+              } else {
+                await requestMemberRemoval(memberActionConfirm.memberId);
+              }
+              setMemberActionConfirm(null);
+            } catch (err) {
+              alert(err.response?.data?.message || 'Action failed');
+            } finally {
+              setMemberActionLoading(false);
+            }
+          }}
+        />
+      )}
     </>
   );
 };

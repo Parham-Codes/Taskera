@@ -18,28 +18,50 @@ export const AuthScreen = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isWaking, setIsWaking] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setIsWaking(false);
+
+    const wakingTimer = setTimeout(() => {
+      setIsWaking(true);
+    }, 4000);
 
     try {
       if (isRegister) {
         if (!name.trim()) {
           setError(t('fullNameLabel'));
           setLoading(false);
+          clearTimeout(wakingTimer);
           return;
         }
         await register(name.trim(), email.trim(), password);
       } else {
         await login(email.trim(), password);
       }
+      clearTimeout(wakingTimer);
       const destination = location.state?.from
         ? `${location.state.from.pathname}${location.state.from.search || ''}`
         : '/personal';
       navigate(destination, { replace: true });
     } catch (err) {
+      clearTimeout(wakingTimer);
+
+      // Check for cold start or connection abort
+      const isColdStart =
+        err.code === 'ECONNABORTED' ||
+        err.response?.status === 502 ||
+        err.response?.status === 504 ||
+        (!err.response && (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')));
+
+      if (isColdStart) {
+        setError(t('serverWakingUpDesc'));
+        return;
+      }
+
       // 1. Network Disconnect / Server is not running
       if (!err.response || err.code === 'ERR_NETWORK') {
         setError(t('serverConnectionError'));
@@ -74,7 +96,9 @@ export const AuthScreen = () => {
         setError(t('authFailed'));
       }
     } finally {
+      clearTimeout(wakingTimer);
       setLoading(false);
+      setIsWaking(false);
     }
   };
 
@@ -220,11 +244,18 @@ export const AuthScreen = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-2.5 px-4 rounded-2xl text-xs sm:text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 active:scale-[0.99] transition-all shadow-md shadow-brand-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full mt-2 py-2.5 px-4 rounded-2xl text-xs sm:text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 active:scale-[0.99] transition-all shadow-md shadow-brand-500/30 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
             <span>{loading ? t('pleaseWait') : isRegister ? t('createAccount') : t('signIn')}</span>
             <ArrowRight className="w-4 h-4 rtl:rotate-180" />
           </button>
+
+          {isWaking && loading && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2.5 animate-fadeIn">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <span className="leading-relaxed">{t('serverWakeupNotice')}</span>
+            </div>
+          )}
         </form>
       </div>
     </div>

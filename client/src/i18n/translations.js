@@ -65,6 +65,27 @@ export const translations = {
     addToWorkspaceBtn: 'افزودن به تیم',
     memberAddedSuccess: 'کاربر با موفقیت به تیم اضافه شد!',
 
+    // Member Removal & Approvals
+    removeMember: 'حذف عضو',
+    requestMemberRemoval: 'درخواست حذف عضو',
+    removalRequests: 'درخواست‌های حذف',
+    pendingRemovalRequests: 'درخواست‌های در انتظار حذف',
+    confirmRemoveMemberDirect: 'آیا از حذف مستقیم این عضو اطمینان دارید؟ این عمل دسترسی او به این سازمان را قطع خواهد کرد.',
+    confirmRequestMemberRemoval: 'آیا از ثبت درخواست حذف این عضو اطمینان دارید؟ این درخواست جهت تأیید نهایی برای مالک سازمان ارسال خواهد شد.',
+    confirmApproveRemoval: 'آیا از تأیید این درخواست و حذف عضویت کاربر اطمینان دارید؟',
+    confirmRejectRemoval: 'آیا از رد این درخواست حذف اطمینان دارید؟',
+    approve: 'تأیید',
+    reject: 'رد درخواست',
+    removalRequestSent: 'درخواست حذف با موفقیت ثبت شد و برای مالک سازمان ارسال گردید.',
+    removalRequestApproved: 'درخواست تأیید شد و عضو مربوطه از سازمان حذف گردید.',
+    removalRequestRejected: 'درخواست حذف رد شد.',
+    memberRemovedDirectly: 'عضو با موفقیت از سازمان حذف شد.',
+    noPendingRemovalRequests: 'هیچ درخواست حذفی در انتظار بررسی نیست.',
+    requestedByLabel: 'درخواست‌دهنده:',
+    targetMemberLabel: 'عضو هدف:',
+    pendingApproval: 'در انتظار تأیید',
+    requestPendingNotice: 'درخواست حذف ثبت شده است',
+
     // Task Board & Columns
     newTask: 'تسک جدید',
     editTask: 'ویرایش تسک',
@@ -278,6 +299,22 @@ export const translations = {
 
     // Language
     langLabel: 'فارسی',
+
+    // Server Wakeup & Cold Start
+    serverConnecting: 'در حال برقراری ارتباط با سرور...',
+    serverWakingUpTitle: 'سرور در حال راه‌اندازی است',
+    serverWakingUpDesc: 'به دلیل استفاده از سرویس ابری رایگان، راه‌اندازی اولیه سرور در حالت استراحت ممکن است تا ۶۰ ثانیه طول بکشد. لطفاً شکیبا باشید.',
+    serverWakeupNotice: 'سرور در حال بیدار شدن است (لطفاً کمی صبر کنید)',
+    serverTimeoutTitle: 'عدم دریافت پاسخ از سرور',
+    serverTimeoutDesc: 'راه‌اندازی سرور بیش از حد معمول طول کشید یا ارتباط با رندر با وقفه مواجه شد.',
+    serverOfflineTitle: 'عدم اتصال به اینترنت',
+    serverOfflineDesc: 'اتصال اینترنت دستگاه خود را بررسی کرده و مجدداً تلاش کنید.',
+    serverErrorTitle: 'خطا در ارتباط با سرور',
+    serverErrorDesc: 'در برقراری ارتباط با سرور مشکلی رخ داده است.',
+    retryBtn: 'تلاش مجدد',
+    reloadBtn: 'بارگذاری مجدد صفحه',
+    secondsElapsed: 'زمان سپری‌شده:',
+    estimatedTime: 'زمان تخمینی: ۳۰ الی ۶۰ ثانیه',
   },
 
   en: {
@@ -345,6 +382,27 @@ export const translations = {
     roleOwner: 'Owner / Founder',
     addToWorkspaceBtn: 'Add to Workspace',
     memberAddedSuccess: 'Member added to team successfully!',
+
+    // Member Removal & Approvals
+    removeMember: 'Remove Member',
+    requestMemberRemoval: 'Request Member Removal',
+    removalRequests: 'Removal Requests',
+    pendingRemovalRequests: 'Pending Removal Requests',
+    confirmRemoveMemberDirect: 'Are you sure you want to directly remove this member? This will revoke their access to this workspace.',
+    confirmRequestMemberRemoval: 'Are you sure you want to submit a removal request for this member? It will be sent to the organization owner for approval.',
+    confirmApproveRemoval: 'Are you sure you want to approve this request and remove this member?',
+    confirmRejectRemoval: 'Are you sure you want to reject this removal request?',
+    approve: 'Approve',
+    reject: 'Reject',
+    removalRequestSent: 'Removal request submitted successfully and sent to the organization owner.',
+    removalRequestApproved: 'Request approved and member removed from organization.',
+    removalRequestRejected: 'Removal request rejected.',
+    memberRemovedDirectly: 'Member removed from organization successfully.',
+    noPendingRemovalRequests: 'No pending removal requests.',
+    requestedByLabel: 'Requested by:',
+    targetMemberLabel: 'Target Member:',
+    pendingApproval: 'Pending Approval',
+    requestPendingNotice: 'Removal request pending',
 
     // Task Board & Columns
     newTask: 'New Task',
@@ -559,5 +617,21 @@ export const translations = {
 
     // Language
     langLabel: 'English',
+
+    // Server Wakeup & Cold Start
+    serverConnecting: 'Connecting to server...',
+    serverWakingUpTitle: 'Server is spinning up',
+    serverWakingUpDesc: 'Due to free cloud hosting, waking up the server from sleep may take up to 60 seconds. Thank you for your patience.',
+    serverWakeupNotice: 'Server is waking up (please wait a moment)',
+    serverTimeoutTitle: 'Server Response Timed Out',
+    serverTimeoutDesc: 'Server spin-up took longer than expected or the connection was interrupted.',
+    serverOfflineTitle: 'No Internet Connection',
+    serverOfflineDesc: 'Please check your network connection and try again.',
+    serverErrorTitle: 'Server Connection Error',
+    serverErrorDesc: 'An error occurred while connecting to the server.',
+    retryBtn: 'Retry',
+    reloadBtn: 'Reload Page',
+    secondsElapsed: 'Elapsed time:',
+    estimatedTime: 'Estimated time: 30 to 60 seconds',
   },
 };

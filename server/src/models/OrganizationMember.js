@@ -29,6 +29,35 @@ const organizationMemberSchema = new mongoose.Schema(
       default: ORG_ROLES.MEMBER,
       required: true,
     },
+    removalRequest: {
+      requestId: {
+        type: String,
+        default: null,
+      },
+      status: {
+        type: String,
+        enum: ['pending', 'rejected', null],
+        default: null,
+      },
+      requestedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+      },
+      requestedAt: {
+        type: Date,
+        default: null,
+      },
+      reviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+      },
+      reviewedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,
@@ -40,6 +69,10 @@ organizationMemberSchema.index({ organizationId: 1, userId: 1 }, { unique: true 
 
 // Optimize querying all organizations a user belongs to
 organizationMemberSchema.index({ userId: 1, role: 1 });
+
+// Optimize querying pending removal requests and lookup by requestId
+organizationMemberSchema.index({ organizationId: 1, 'removalRequest.status': 1 });
+organizationMemberSchema.index({ 'removalRequest.requestId': 1 });
 
 const OrganizationMember = mongoose.models.OrganizationMember || mongoose.model('OrganizationMember', organizationMemberSchema);
 

@@ -9,6 +9,8 @@ export const ACTIVITY_ACTIONS = {
   COMMENT_ADDED: 'comment_added',
   MEMBER_JOINED: 'member_joined',
   MEMBER_REMOVED: 'member_removed',
+  MEMBER_REMOVAL_REQUESTED: 'member_removal_requested',
+  MEMBER_REMOVAL_REJECTED: 'member_removal_rejected',
   ROLE_UPDATED: 'role_updated',
 };
 

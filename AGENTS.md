@@ -60,3 +60,4 @@
 2. **Review existing models and schemas** before modifying or extending fields.
 3. **Always verify database indexing** when adding new query patterns.
 4. **Test & inspect error handling:** All async routes must properly funnel errors to the centralized global error handler.
+5. **STRICT GIT POLICY (CRITICAL):** NO agent or automated process is allowed to run ANY Git commands (e.g. `git commit`, `git push`, `git checkout`, `git branch`, `git stash`, etc.) under ANY circumstances unless Parham explicitly instructs and gives permission in the conversation. Autonomous Git actions are strictly prohibited.

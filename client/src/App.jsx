@@ -24,19 +24,28 @@ import { CategoryManagerModal } from './features/categories/CategoryManagerModal
 import { CommandPalette } from './components/CommandPalette/CommandPalette.jsx';
 import { TaskImportExportModal } from './features/tasks/TaskImportExportModal.jsx';
 import { TelegramSettingsModal } from './features/telegram/TelegramSettingsModal.jsx';
+import { MemberRemovalRequestsModal } from './features/workspaces/MemberRemovalRequestsModal.jsx';
 import { Footer } from './layouts/Footer.jsx';
 import { ErrorBoundary } from './components/common/ErrorBoundary.jsx';
+import { ServerWakeupScreen } from './components/common/ServerWakeupScreen.jsx';
+
+const GlobalAppLoader = () => {
+  const { serverStatus, elapsedSeconds, retryAuth } = useAuth();
+  return (
+    <ServerWakeupScreen
+      status={serverStatus}
+      elapsedSeconds={elapsedSeconds}
+      onRetry={retryAuth}
+    />
+  );
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#edf1f7] dark:bg-[#0B0F17]">
-        <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
-      </div>
-    );
+    return <GlobalAppLoader />;
   }
 
   if (!user) {
@@ -51,11 +60,7 @@ const PublicOnlyRoute = ({ children }) => {
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#edf1f7] dark:bg-[#0B0F17]">
-        <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
-      </div>
-    );
+    return <GlobalAppLoader />;
   }
 
   if (user) {
@@ -72,11 +77,7 @@ const RootRedirect = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#edf1f7] dark:bg-[#0B0F17]">
-        <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
-      </div>
-    );
+    return <GlobalAppLoader />;
   }
 
   return <Navigate to={user ? '/personal' : '/login'} replace />;
@@ -109,12 +110,35 @@ const MainApp = () => {
   const [importExportModalOpen, setImportExportModalOpen] = useState(false);
   const [importExportTab, setImportExportTab] = useState('import');
   const [telegramSettingsOpen, setTelegramSettingsOpen] = useState(false);
+  const [removalRequestsModalOpen, setRemovalRequestsModalOpen] = useState(false);
+  const [targetRemovalRequestId, setTargetRemovalRequestId] = useState(null);
   const [tasksRefreshTrigger, setTasksRefreshTrigger] = useState(0);
   const [lastImportedTasks, setLastImportedTasks] = useState(null);
 
   const handleOpenImportExport = (tab = 'import') => {
     setImportExportTab(tab);
     setImportExportModalOpen(true);
+  };
+
+  // Auto-open MemberRemovalRequestsModal if query param memberRemovalRequest is present in URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const reqId = params.get('memberRemovalRequest');
+    if (reqId && isTeamRoute) {
+      setTargetRemovalRequestId(reqId);
+      setRemovalRequestsModalOpen(true);
+    }
+  }, [location.search, isTeamRoute]);
+
+  const handleCloseRemovalRequests = () => {
+    setRemovalRequestsModalOpen(false);
+    setTargetRemovalRequestId(null);
+    const params = new URLSearchParams(location.search);
+    if (params.has('memberRemovalRequest')) {
+      params.delete('memberRemovalRequest');
+      const nextSearch = params.toString();
+      navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ''}`, { replace: true });
+    }
   };
 
   // Global Shortcut for Command Palette: Ctrl+K / Cmd+K
@@ -142,6 +166,7 @@ const MainApp = () => {
         onOpenInviteMember={() => setInviteMemberOpen(true)}
         onOpenCategoryManager={() => setCategoryManagerOpen(true)}
         onOpenTelegramSettings={() => setTelegramSettingsOpen(true)}
+        onOpenRemovalRequests={() => setRemovalRequestsModalOpen(true)}
         taskCounts={taskCounts}
       />
 
@@ -270,6 +295,12 @@ const MainApp = () => {
       <TelegramSettingsModal
         isOpen={telegramSettingsOpen}
         onClose={() => setTelegramSettingsOpen(false)}
+      />
+
+      <MemberRemovalRequestsModal
+        isOpen={removalRequestsModalOpen}
+        onClose={handleCloseRemovalRequests}
+        targetRequestId={targetRemovalRequestId}
       />
     </div>
   );

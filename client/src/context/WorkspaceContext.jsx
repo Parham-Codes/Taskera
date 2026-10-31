@@ -14,6 +14,7 @@ export const WorkspaceProvider = ({ children }) => {
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [workspaces, setWorkspaces] = useState([]);
   const [members, setMembers] = useState([]);
+  const [pendingRemovalRequests, setPendingRemovalRequests] = useState([]);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [isUnauthorizedWorkspace, setIsUnauthorizedWorkspace] = useState(false);
 
@@ -50,6 +51,21 @@ export const WorkspaceProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Failed to fetch members:', err);
+    }
+  }, []);
+
+  const fetchPendingRemovalRequests = useCallback(async (orgId) => {
+    if (!orgId) {
+      setPendingRemovalRequests([]);
+      return;
+    }
+    try {
+      const res = await api.get(`/organizations/${orgId}/member-removal-requests`);
+      if (res.data?.success) {
+        setPendingRemovalRequests(res.data.data.requests || []);
+      }
+    } catch {
+      setPendingRemovalRequests([]);
     }
   }, []);
 
@@ -109,15 +125,21 @@ export const WorkspaceProvider = ({ children }) => {
     }
   }, [location.pathname, workspaces, loadingWorkspaces, user]);
 
-  // Fetch members whenever active workspace changes
+  // Fetch members & pending removal requests whenever active workspace changes
   useEffect(() => {
     const orgId = activeWorkspace?.id || activeWorkspace?._id;
     if (orgId) {
       fetchMembers(orgId);
+      if (['owner', 'manager'].includes(activeWorkspace?.role?.toLowerCase?.())) {
+        fetchPendingRemovalRequests(orgId);
+      } else {
+        setPendingRemovalRequests([]);
+      }
     } else {
       setMembers([]);
+      setPendingRemovalRequests([]);
     }
-  }, [activeWorkspace, fetchMembers]);
+  }, [activeWorkspace, fetchMembers, fetchPendingRemovalRequests]);
 
   // Navigate using React Router on workspace switch
   const switchWorkspace = useCallback(
@@ -153,19 +175,69 @@ export const WorkspaceProvider = ({ children }) => {
     return res.data;
   };
 
+  const removeMemberDirect = async (memberId) => {
+    const orgId = activeWorkspace?.id || activeWorkspace?._id;
+    if (!orgId) return;
+    const res = await api.delete(`/organizations/${orgId}/members/${memberId}`);
+    if (res.data?.success) {
+      await fetchMembers(orgId);
+      await fetchPendingRemovalRequests(orgId);
+    }
+    return res.data;
+  };
+
+  const requestMemberRemoval = async (memberId) => {
+    const orgId = activeWorkspace?.id || activeWorkspace?._id;
+    if (!orgId) return;
+    const res = await api.post(`/organizations/${orgId}/members/${memberId}/removal-request`);
+    if (res.data?.success) {
+      await fetchMembers(orgId);
+      await fetchPendingRemovalRequests(orgId);
+    }
+    return res.data;
+  };
+
+  const approveMemberRemoval = async (memberId, requestId) => {
+    const orgId = activeWorkspace?.id || activeWorkspace?._id;
+    if (!orgId) return;
+    const res = await api.post(`/organizations/${orgId}/members/${memberId}/removal-request/${requestId}/approve`);
+    if (res.data?.success) {
+      await fetchMembers(orgId);
+      await fetchPendingRemovalRequests(orgId);
+    }
+    return res.data;
+  };
+
+  const rejectMemberRemoval = async (memberId, requestId) => {
+    const orgId = activeWorkspace?.id || activeWorkspace?._id;
+    if (!orgId) return;
+    const res = await api.post(`/organizations/${orgId}/members/${memberId}/removal-request/${requestId}/reject`);
+    if (res.data?.success) {
+      await fetchMembers(orgId);
+      await fetchPendingRemovalRequests(orgId);
+    }
+    return res.data;
+  };
+
   return (
     <WorkspaceContext.Provider
       value={{
         activeWorkspace,
         workspaces,
         members,
+        pendingRemovalRequests,
         loadingWorkspaces,
         isUnauthorizedWorkspace,
         switchWorkspace,
         createOrganization,
         inviteMember,
+        removeMemberDirect,
+        requestMemberRemoval,
+        approveMemberRemoval,
+        rejectMemberRemoval,
         fetchWorkspaces,
         fetchMembers,
+        fetchPendingRemovalRequests,
       }}
     >
       {children}
