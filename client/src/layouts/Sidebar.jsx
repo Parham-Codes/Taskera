@@ -21,6 +21,7 @@ import {
   UserX,
   UserMinus,
   Trash2,
+  Eye,
 } from 'lucide-react';
 import { useCategories } from '../context/CategoryContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -448,18 +449,56 @@ export const Sidebar = ({
                         (pr) => String(pr.member?.id || pr.member?.memberId) === String(memberId)
                       );
 
+                    // RBAC: Who can view whose tasks?
+                    // Owner → can view everyone's tasks
+                    // Manager → can view managers' + members' tasks, NOT owner's
+                    // Member → cannot view anyone's tasks
+                    const canViewMemberTasks =
+                      (isOwner) ||
+                      (isManager && !targetIsOwner);
+                    const isMemberFilterActive = activeFilter === `member:${memberId}`;
+
                     return (
                       <div
                         key={memberId}
-                        className="group flex items-center justify-between px-3 py-1.5 rounded-xl hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
+                        className={`group flex items-center justify-between px-3 py-1.5 rounded-xl transition-colors ${
+                          isMemberFilterActive
+                            ? 'bg-brand-500/10 dark:bg-brand-500/15 border border-brand-500/25'
+                            : 'hover:bg-slate-100/60 dark:hover:bg-slate-800/40'
+                        }`}
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-lg bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold flex items-center justify-center shrink-0">
+                        <div
+                          className={`flex items-center gap-2 min-w-0 flex-1 ${
+                            canViewMemberTasks ? 'cursor-pointer' : ''
+                          }`}
+                          onClick={() => {
+                            if (!canViewMemberTasks) return;
+                            onFilterChange(`member:${memberId}`);
+                            onClose?.();
+                          }}
+                          title={canViewMemberTasks ? (lang === 'fa' ? `مشاهده تسک‌های ${memberName}` : `View ${memberName}'s tasks`) : undefined}
+                        >
+                          <div className={`w-6 h-6 rounded-lg text-[10px] font-bold flex items-center justify-center shrink-0 ${
+                            isMemberFilterActive
+                              ? 'bg-brand-500 text-white'
+                              : 'bg-brand-500/20 text-brand-600 dark:text-brand-400'
+                          }`}>
                             {initial}
                           </div>
-                          <span className="text-xs truncate text-slate-700 dark:text-slate-300">
+                          <span className={`text-xs truncate ${
+                            isMemberFilterActive
+                              ? 'text-brand-600 dark:text-brand-400 font-bold'
+                              : 'text-slate-700 dark:text-slate-300'
+                          }`}>
                             {memberName}
                           </span>
+                          {canViewMemberTasks && (
+                            <Eye className={`w-3 h-3 shrink-0 transition-opacity ${
+                              isMemberFilterActive
+                                ? 'opacity-100 text-brand-500'
+                                : 'opacity-0 group-hover:opacity-60 text-slate-400'
+                            }`} />
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400">

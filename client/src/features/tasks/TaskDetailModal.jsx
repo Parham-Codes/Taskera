@@ -57,6 +57,16 @@ export const TaskDetailModal = ({
     onTaskUpdated?.(updatedTask);
   };
 
+  // Determine if the current user has permission to start / pause / stop the timer
+  const isPersonal = !task?.organizationId;
+  const currentUserId = String(user?.id || user?._id || '');
+  const isCreator = String(task?.createdBy?._id || task?.createdBy || '') === currentUserId;
+  const assignees = Array.isArray(task?.assignedTo)
+    ? task.assignedTo
+    : task?.assignedTo ? [task.assignedTo] : [];
+  const isAssignee = assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
+  const canTrackTime = isPersonal ? isCreator : isAssignee;
+
   // Custom Time Tracking Hook
   const {
     activeSession,
@@ -352,6 +362,7 @@ export const TaskDetailModal = ({
           {/* 2. Live Time Tracker */}
           <TaskDetailTimeTracker
             task={task}
+            canTrackTime={canTrackTime}
             activeSession={activeSession}
             isPaused={isPaused}
             activeSubtaskId={activeSubtaskId}
@@ -367,6 +378,7 @@ export const TaskDetailModal = ({
           {/* 3. Subtasks / Checklist */}
           <TaskDetailSubtasks
             subtasks={task.subtasks || []}
+            canTrackTime={canTrackTime}
             activeSubtaskId={activeSubtaskId}
             isPaused={isPaused}
             activeSession={activeSession}

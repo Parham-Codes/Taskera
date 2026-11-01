@@ -9,6 +9,7 @@ import {
 
 export const TaskDetailTimeTracker = ({
   task,
+  canTrackTime = true,
   activeSession,
   isPaused = false,
   activeSubtaskId = null,
@@ -91,7 +92,13 @@ export const TaskDetailTimeTracker = ({
 
         {/* Action Buttons */}
         <div className="sm:col-span-6 flex flex-wrap items-center justify-center sm:justify-end gap-2">
-          {!activeSession && !isPaused ? (
+          {!canTrackTime ? (
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-500 text-xs border border-slate-200 dark:border-slate-700/60">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                {t('timerRestrictedNotice')}
+              </span>
+            </div>
+          ) : !activeSession && !isPaused ? (
             <button
               onClick={() => onStartTimer(activeSubtaskId)}
               disabled={timerBusy}

@@ -42,6 +42,13 @@ export const createTaskSchema = z.object({
       .optional()
       .default([]),
     tags: z.array(z.string().trim()).optional().default([]),
+    recurrence: z
+      .object({
+        isRecurring: z.boolean().optional().default(false),
+        frequency: z.enum(['daily', 'weekdays', 'weekly']).optional().default('daily'),
+        nextSpawnedTaskId: z.string().regex(objectIdRegex, 'Invalid Task ID').nullable().optional(),
+      })
+      .optional(),
     order: z.number().int().optional().default(0),
   }),
 });
@@ -73,6 +80,13 @@ export const updateTaskSchema = z.object({
       )
       .optional(),
     tags: z.array(z.string().trim()).optional(),
+    recurrence: z
+      .object({
+        isRecurring: z.boolean().optional(),
+        frequency: z.enum(['daily', 'weekdays', 'weekly']).optional(),
+        nextSpawnedTaskId: z.string().regex(objectIdRegex, 'Invalid Task ID').nullable().optional(),
+      })
+      .optional(),
     order: z.number().int().optional(),
   }),
 });

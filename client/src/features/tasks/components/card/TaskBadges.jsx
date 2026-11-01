@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, CheckSquare } from 'lucide-react';
+import { Clock, CheckSquare, Repeat } from 'lucide-react';
 import { Badge } from '../../../../components/ui/index.js';
 import { formatShortDuration } from '../../utils/taskHelpers.js';
 
@@ -115,6 +115,24 @@ export const TaskBadges = ({
           <span>
             {completedSubtasks}/{totalSubtasks}
           </span>
+        </span>
+      )}
+      {/* 5. Routine / Recurring Badge */}
+      {task.recurrence?.isRecurring && (
+        <span
+          className={`inline-flex items-center font-bold rounded-full border bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 shadow-2xs ${
+            compact ? 'gap-1 text-[10px] px-1.5 py-0.5' : 'gap-1.5 text-[11px] px-2 py-0.5'
+          }`}
+          title={
+            task.recurrence.frequency === 'weekdays'
+              ? (lang === 'fa' ? 'روتین روزهای کاری' : 'Weekdays Routine')
+              : task.recurrence.frequency === 'weekly'
+              ? (lang === 'fa' ? 'روتین هفتگی' : 'Weekly Routine')
+              : (lang === 'fa' ? 'روتین روزانه' : 'Daily Routine')
+          }
+        >
+          <Repeat className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
+          <span>{lang === 'fa' ? 'روتین' : 'Routine'}</span>
         </span>
       )}
     </div>

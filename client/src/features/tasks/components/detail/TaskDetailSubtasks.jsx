@@ -14,6 +14,7 @@ import { formatStopwatch, formatDurationText } from '../../utils/taskHelpers.js'
 
 export const TaskDetailSubtasks = ({
   subtasks = [],
+  canTrackTime = true,
   activeSubtaskId = null,
   isPaused = false,
   activeSession = null,
@@ -147,58 +148,60 @@ export const TaskDetailSubtasks = ({
                 )}
 
                 {/* Timer Control Buttons per Subtask */}
-                {isThisActive ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={timerBusy}
-                      onClick={() => onPauseSubtaskTimer(st._id)}
-                      className="p-1 rounded-lg text-amber-600 hover:bg-amber-500/15 transition-colors cursor-pointer disabled:opacity-50"
-                      title={t('pauseSubtaskTimer')}
-                    >
-                      <Pause className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={timerBusy}
-                      onClick={() => onStopSubtaskTimer(st._id)}
-                      className="p-1 rounded-lg text-rose-600 hover:bg-rose-500/15 transition-colors cursor-pointer disabled:opacity-50"
-                      title={t('stopSubtaskTimer')}
-                    >
-                      <Square className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                  </>
-                ) : isThisPaused ? (
-                  <>
+                {canTrackTime && (
+                  isThisActive ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={timerBusy}
+                        onClick={() => onPauseSubtaskTimer(st._id)}
+                        className="p-1 rounded-lg text-amber-600 hover:bg-amber-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                        title={t('pauseSubtaskTimer')}
+                      >
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={timerBusy}
+                        onClick={() => onStopSubtaskTimer(st._id)}
+                        className="p-1 rounded-lg text-rose-600 hover:bg-rose-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                        title={t('stopSubtaskTimer')}
+                      >
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                    </>
+                  ) : isThisPaused ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={timerBusy}
+                        onClick={() => onStartSubtaskTimer(st._id)}
+                        className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                        title={t('resumeSubtaskTimer')}
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={timerBusy}
+                        onClick={() => onStopSubtaskTimer(st._id)}
+                        className="p-1 rounded-lg text-rose-600 hover:bg-rose-500/15 transition-colors cursor-pointer disabled:opacity-50"
+                        title={t('stopSubtaskTimer')}
+                      >
+                        <Square className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       disabled={timerBusy}
                       onClick={() => onStartSubtaskTimer(st._id)}
-                      className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-500/15 transition-colors cursor-pointer disabled:opacity-50"
-                      title={t('resumeSubtaskTimer')}
+                      className="p-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                      title={t('startSubtaskTimer')}
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <Play className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      disabled={timerBusy}
-                      onClick={() => onStopSubtaskTimer(st._id)}
-                      className="p-1 rounded-lg text-rose-600 hover:bg-rose-500/15 transition-colors cursor-pointer disabled:opacity-50"
-                      title={t('stopSubtaskTimer')}
-                    >
-                      <Square className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={timerBusy}
-                    onClick={() => onStartSubtaskTimer(st._id)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-50"
-                    title={t('startSubtaskTimer')}
-                  >
-                    <Play className="w-3.5 h-3.5" />
-                  </button>
+                  )
                 )}
 
                 {/* Delete Subtask Button */}

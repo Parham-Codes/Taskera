@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Flag, User, AlertCircle, CheckSquare, Calendar, Tag, Plus, Trash2, X, Check } from 'lucide-react';
+import { Flag, User, AlertCircle, CheckSquare, Calendar, Tag, Plus, Trash2, X, Check, Repeat } from 'lucide-react';
 import { useWorkspace } from '../../context/WorkspaceContext.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
 import { useCategories } from '../../context/CategoryContext.jsx';
@@ -24,6 +24,8 @@ export const TaskModal = ({
   const [dueDate, setDueDate] = useState('');
   const [assignedTo, setAssignedTo] = useState([]);
   const [categoryId, setCategoryId] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState('daily');
   const [subtasks, setSubtasks] = useState([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [error, setError] = useState('');
@@ -49,6 +51,8 @@ export const TaskModal = ({
       setAssignedTo(initialAssignees);
 
       setCategoryId(initialTask.categoryId?._id || initialTask.categoryId || '');
+      setIsRecurring(Boolean(initialTask.recurrence?.isRecurring));
+      setRecurrenceFrequency(initialTask.recurrence?.frequency || 'daily');
       setSubtasks(initialTask.subtasks || []);
     } else {
       setTitle('');
@@ -58,6 +62,8 @@ export const TaskModal = ({
       setDueDate(defaultDueDate || '');
       setAssignedTo([]);
       setCategoryId('');
+      setIsRecurring(false);
+      setRecurrenceFrequency('daily');
       setSubtasks([]);
     }
     setNewSubtaskTitle('');
@@ -94,6 +100,10 @@ export const TaskModal = ({
         assignedTo: (activeWorkspace?.id || activeWorkspace?._id) ? assignedTo : [],
         categoryId: categoryId || null,
         subtasks,
+        recurrence: {
+          isRecurring,
+          frequency: recurrenceFrequency,
+        },
       };
 
       await onSubmit(payload);
@@ -320,6 +330,53 @@ export const TaskModal = ({
                   <option value="completed">{t('completed')}</option>
                 </select>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Routine / Recurring Task Section */}
+        <div className="p-3.5 rounded-2xl border border-indigo-500/25 bg-indigo-500/5 dark:bg-indigo-950/20 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <Repeat className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                  {t('routineToggle')}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+                  {t('routineHint')}
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle Switch */}
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
+          </div>
+
+          {isRecurring && (
+            <div className="pt-2 border-t border-indigo-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in duration-200">
+              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                {t('routineFrequency')}:
+              </label>
+              <select
+                value={recurrenceFrequency}
+                onChange={(e) => setRecurrenceFrequency(e.target.value)}
+                className="px-3 py-1.5 rounded-xl text-xs glass-input focus:outline-none focus:ring-2 focus:ring-indigo-500/40 text-slate-900 dark:text-white"
+              >
+                <option value="daily">{t('dailyRoutine')}</option>
+                <option value="weekdays">{t('weekdaysRoutine')}</option>
+                <option value="weekly">{t('weeklyRoutine')}</option>
+              </select>
             </div>
           )}
         </div>

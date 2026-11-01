@@ -62,7 +62,7 @@ export const verifyTaskReadAccess = async (task, userId) => {
 };
 
 /**
- * Verifies time tracking access for a task
+ * Verifies time tracking access for a task (Only assignees in orgs or creator in personal space)
  * @param {Object} task
  * @param {string} userId
  */
@@ -71,14 +71,31 @@ export const verifyTaskTimeTrackingAccess = async (task, userId) => {
     throw new TaskError('Task not found', 404);
   }
 
+  const userIdStr = userId.toString();
+
   if (task.organizationId) {
     await verifyOrgMembership(task.organizationId, userId);
+
+    const assignees = Array.isArray(task.assignedTo)
+      ? task.assignedTo
+      : task.assignedTo ? [task.assignedTo] : [];
+    const isAssignee = assignees.some((a) => {
+      const id = a?._id ? a._id.toString() : a?.toString();
+      return id === userIdStr;
+    });
+
+    if (!isAssignee) {
+      throw new TaskError(
+        'تنها اعضایی که تسک به آن‌ها ارجاع داده شده است اجازه شروع، توقف یا ثبت زمان را دارند.',
+        403
+      );
+    }
   } else {
     const creatorId = task.createdBy?._id
       ? task.createdBy._id.toString()
       : task.createdBy?.toString();
-    if (creatorId !== userId.toString()) {
-      throw new TaskError('Access denied to this personal task', 403);
+    if (creatorId !== userIdStr) {
+      throw new TaskError('دسترسی به این تسک شخصی مجاز نیست.', 403);
     }
   }
 };

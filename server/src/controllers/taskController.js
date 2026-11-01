@@ -78,15 +78,18 @@ export const getTaskById = async (req, res, next) => {
  */
 export const updateTask = async (req, res, next) => {
   try {
-    const task = await taskCrudService.updateTask({
+    const result = await taskCrudService.updateTask({
       taskId: req.params.taskId,
       updates: req.body,
       user: req.user,
     });
 
+    const task = result?.task || result;
+    const nextTask = result?.nextTask || null;
+
     return successResponse(res, {
       message: 'Task updated successfully',
-      data: { task },
+      data: { task, ...(nextTask ? { nextTask } : {}) },
     });
   } catch (error) {
     next(error);

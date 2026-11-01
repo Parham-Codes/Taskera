@@ -101,6 +101,23 @@ const taskSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    recurrence: {
+      isRecurring: {
+        type: Boolean,
+        default: false,
+        index: true,
+      },
+      frequency: {
+        type: String,
+        enum: ['daily', 'weekdays', 'weekly'],
+        default: 'daily',
+      },
+      nextSpawnedTaskId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Task',
+        default: null,
+      },
+    },
     subtasks: [
       {
         title: {

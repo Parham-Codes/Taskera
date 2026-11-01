@@ -6,6 +6,7 @@ import {
   UserCheck,
   Bell,
   Tag,
+  User,
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useWorkspace } from '../../context/WorkspaceContext.jsx';
@@ -47,7 +48,7 @@ export const TaskBoard = ({
   newImportedTasks = null,
 }) => {
   const { user } = useAuth();
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, members } = useWorkspace();
   const { t, lang } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotifications();
@@ -238,6 +239,15 @@ export const TaskBoard = ({
         const targetCatId = sidebarFilter.replace('cat:', '');
         const catId = task.categoryId?._id || task.categoryId;
         if (String(catId) !== String(targetCatId)) return false;
+      } else if (sidebarFilter?.startsWith('member:')) {
+        const targetMemberId = sidebarFilter.replace('member:', '');
+        const assignees = Array.isArray(task.assignedTo)
+          ? task.assignedTo
+          : task.assignedTo ? [task.assignedTo] : [];
+        const isAssigned = assignees.some(
+          (a) => String(a?._id || a?.id || a) === targetMemberId
+        );
+        if (!isAssigned) return false;
       }
 
       // 2. Priority Filter from Header
@@ -287,7 +297,14 @@ export const TaskBoard = ({
     );
 
     try {
-      await api.patch(`/tasks/${taskId}`, { status: targetColumnId });
+      const res = await api.patch(`/tasks/${taskId}`, { status: targetColumnId });
+      if (res.data?.data?.nextTask) {
+        setAllTasks((prev) => {
+          const nextTask = res.data.data.nextTask;
+          const exists = prev.some((t) => t._id === nextTask._id);
+          return exists ? prev : [nextTask, ...prev];
+        });
+      }
     } catch (err) {
       console.error('Failed to update task status on drop:', err);
       fetchTasks();
@@ -298,9 +315,15 @@ export const TaskBoard = ({
     if (editingTask?._id) {
       const res = await api.patch(`/tasks/${editingTask._id}`, taskPayload);
       if (res.data?.success) {
-        setAllTasks((prev) =>
-          prev.map((t) => (t._id === editingTask._id ? res.data.data.task : t))
-        );
+        setAllTasks((prev) => {
+          const updated = prev.map((t) => (t._id === editingTask._id ? res.data.data.task : t));
+          if (res.data?.data?.nextTask) {
+            const nextTask = res.data.data.nextTask;
+            const exists = updated.some((t) => t._id === nextTask._id);
+            return exists ? updated : [nextTask, ...updated];
+          }
+          return updated;
+        });
       }
     } else {
       const res = await api.post('/tasks', taskPayload);
@@ -339,7 +362,14 @@ export const TaskBoard = ({
       setAllTasks((prev) =>
         prev.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t))
       );
-      await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      const res = await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      if (res.data?.data?.nextTask) {
+        setAllTasks((prev) => {
+          const nextTask = res.data.data.nextTask;
+          const exists = prev.some((t) => t._id === nextTask._id);
+          return exists ? prev : [nextTask, ...prev];
+        });
+      }
     } catch (err) {
       console.error('Failed to update status:', err);
       fetchTasks();
@@ -406,8 +436,12 @@ export const TaskBoard = ({
 
   // Check if viewing a specific category selected from Sidebar
   const isCategoryFromSidebar = Boolean(sidebarFilter?.startsWith('cat:'));
+  const isMemberFromSidebar = Boolean(sidebarFilter?.startsWith('member:'));
   const selectedSidebarCategory = isCategoryFromSidebar
     ? categories.find((c) => String(c._id) === sidebarFilter.replace('cat:', ''))
+    : null;
+  const selectedSidebarMember = isMemberFromSidebar
+    ? (members || []).find((m) => String(m?.id || m?._id) === sidebarFilter.replace('member:', ''))
     : null;
 
   // Compute tasks in the current category scope for accurate status counts
@@ -419,8 +453,17 @@ export const TaskBoard = ({
         return String(catId) === String(targetCatId);
       });
     }
+    if (isMemberFromSidebar) {
+      const targetMemberId = sidebarFilter.replace('member:', '');
+      return allTasks.filter((task) => {
+        const assignees = Array.isArray(task.assignedTo)
+          ? task.assignedTo
+          : task.assignedTo ? [task.assignedTo] : [];
+        return assignees.some((a) => String(a?._id || a?.id || a) === targetMemberId);
+      });
+    }
     return allTasks;
-  }, [allTasks, isCategoryFromSidebar, sidebarFilter]);
+  }, [allTasks, isCategoryFromSidebar, isMemberFromSidebar, sidebarFilter]);
 
   // Filter metadata when viewing a specific sidebar filter
   const filterMeta = useMemo(() => {
@@ -430,6 +473,15 @@ export const TaskBoard = ({
         icon: Tag,
         color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
         customColor: selectedSidebarCategory?.color || '#4F5AE4',
+      };
+    }
+
+    if (isMemberFromSidebar) {
+      const memberName = selectedSidebarMember?.name || selectedSidebarMember?.email?.split('@')[0] || t('teamMembers');
+      return {
+        title: lang === 'fa' ? `تسک‌های ${memberName}` : `${memberName}'s Tasks`,
+        icon: User,
+        color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
       };
     }
 
@@ -460,7 +512,7 @@ export const TaskBoard = ({
         color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
       },
     }[sidebarFilter];
-  }, [sidebarFilter, isCategoryFromSidebar, selectedSidebarCategory, t]);
+  }, [sidebarFilter, isCategoryFromSidebar, isMemberFromSidebar, selectedSidebarCategory, selectedSidebarMember, t, lang]);
 
   // Selected task object for instant 0ms TaskDetailModal rendering
   const selectedTaskForDetail = allTasks.find(
@@ -527,7 +579,7 @@ export const TaskBoard = ({
               - If a category is selected from the sidebar: DO NOT show category pills. Show Status Filter Tabs!
               - If in ListView (نمای دوم) for All Tasks: Show Status Filter Tabs (with 'همه' tab)!
               - In standard Kanban board: Show Category Filter Pills. */}
-          {isCategoryFromSidebar ? (
+          {isCategoryFromSidebar || isMemberFromSidebar ? (
             <TaskStatusFilterBar
               statusColumns={STATUS_COLUMNS}
               selectedStatus={selectedStatusFilter}

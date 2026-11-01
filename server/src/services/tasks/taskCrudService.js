@@ -37,6 +37,7 @@ export const taskCrudService = {
       order,
       categoryId,
       subtasks,
+      recurrence,
     } = taskData;
 
     let targetOrgId = null;
@@ -93,6 +94,7 @@ export const taskCrudService = {
       categoryId: categoryId || null,
       subtasks: Array.isArray(subtasks) ? subtasks : [],
       tags: tags || [],
+      recurrence: recurrence || { isRecurring: false, frequency: 'daily' },
       order: order || 0,
     });
 
@@ -316,6 +318,67 @@ export const taskCrudService = {
     Object.assign(task, updates);
     await task.save();
 
+    // Auto-clone next recurring routine task when marked as completed
+    let nextTask = null;
+    if (
+      updates.status === 'completed' &&
+      previousStatus !== 'completed' &&
+      task.recurrence?.isRecurring &&
+      !task.recurrence?.nextSpawnedTaskId
+    ) {
+      const nextDueDate = new Date();
+      if (task.recurrence.frequency === 'weekly') {
+        nextDueDate.setDate(nextDueDate.getDate() + 7);
+      } else {
+        // daily or weekdays
+        nextDueDate.setDate(nextDueDate.getDate() + 1);
+        if (task.recurrence.frequency === 'weekdays') {
+          // If next day is Friday (day 5 in JS: 0=Sun, 5=Fri), move to Saturday (day 6)
+          if (nextDueDate.getDay() === 5) {
+            nextDueDate.setDate(nextDueDate.getDate() + 1);
+          }
+        }
+      }
+      nextDueDate.setHours(23, 59, 59, 999);
+
+      const createdNextTask = await Task.create({
+        title: task.title,
+        description: task.description,
+        status: 'todo',
+        priority: task.priority,
+        dueDate: nextDueDate,
+        createdBy: task.createdBy,
+        assignedTo: task.assignedTo,
+        organizationId: task.organizationId,
+        categoryId: task.categoryId,
+        tags: task.tags || [],
+        order: 0,
+        recurrence: {
+          isRecurring: true,
+          frequency: task.recurrence.frequency || 'daily',
+          nextSpawnedTaskId: null,
+        },
+        subtasks: (task.subtasks || []).map((st) => ({
+          title: st.title,
+          completed: false,
+          completedAt: null,
+          totalTimeSpent: 0,
+        })),
+        totalTimeSpent: 0,
+        timeLogs: [],
+      });
+
+      task.recurrence.nextSpawnedTaskId = createdNextTask._id;
+      await task.save();
+
+      nextTask = await Task.findById(createdNextTask._id)
+        .populate('organizationId', 'name slug')
+        .populate('createdBy', 'name email avatar')
+        .populate('assignedTo', 'name email avatar')
+        .populate('categoryId', 'name color')
+        .lean();
+    }
+
     const updatedTask = await Task.findById(task._id)
       .populate('organizationId', 'name slug')
       .populate('createdBy', 'name email avatar')
@@ -423,6 +486,10 @@ export const taskCrudService = {
           );
         }
       })();
+    }
+
+    if (nextTask) {
+      return { task: updatedTask, nextTask };
     }
 
     return updatedTask;

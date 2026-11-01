@@ -184,6 +184,18 @@ export const translations = {
     minutesShort: 'دقیقه',
     secondsShort: 'ثانیه',
     loggedSuccess: 'زمان با موفقیت در دیتابیس ثبت شد.',
+    timerRestrictedNotice: 'تنها اعضایی که تسک به آن‌ها ارجاع داده شده می‌توانند زمان را کنترل کنند.',
+    onlyAssigneesNotice: 'فقط اعضای ارجاع‌شده',
+
+    // Routine / Recurring Tasks
+    routineTask: 'تسک روتین (تکرارشونده)',
+    routineToggle: 'تکرار خودکار به عنوان روتین',
+    routineHint: 'با اتمام و تکمیل این تسک، نسخه جدیدی برای نوبت بعدی با سررسید خودکار در صف انجام قرار می‌گیرد.',
+    routineFrequency: 'دوره تکرار روتین',
+    dailyRoutine: 'روزانه (هر روز)',
+    weekdaysRoutine: 'روزهای کاری (شنبه تا چهارشنبه)',
+    weeklyRoutine: 'هفتگی (هر ۷ روز)',
+    routine: 'روتین',
 
     // Quick filter page headers
     quickFilterAll: 'همه تسک‌ها',
@@ -191,6 +203,8 @@ export const translations = {
     quickFilterMyTasks: 'تسک‌های محول‌شده به من',
     quickFilterDueSoon: 'تسک‌های نزدیک به سررسید (۳ روز آینده)',
     quickFilterCompleted: 'تسک‌های تکمیل‌شده',
+    quickFilterMemberTasks: 'تسک‌های',
+    viewMemberTasks: 'مشاهده تسک‌ها',
     showingFilteredTasks: 'نمایش تسک‌های فیلترشده',
     backToAllBoard: 'بازگشت به برد همه تسک‌ها',
 
@@ -513,6 +527,18 @@ export const translations = {
     minutesShort: 'm',
     secondsShort: 's',
     loggedSuccess: 'Time logged successfully to database.',
+    timerRestrictedNotice: 'Only assigned members are allowed to start or stop the timer.',
+    onlyAssigneesNotice: 'Assignees only',
+
+    // Routine / Recurring Tasks
+    routineTask: 'Routine Task',
+    routineToggle: 'Repeat automatically as routine',
+    routineHint: 'When completed, a fresh instance is automatically scheduled for the next interval.',
+    routineFrequency: 'Recurrence Interval',
+    dailyRoutine: 'Daily (Every day)',
+    weekdaysRoutine: 'Weekdays (Work days)',
+    weeklyRoutine: 'Weekly (Every 7 days)',
+    routine: 'Routine',
 
     // Quick filter page headers
     quickFilterAll: 'All Tasks',
@@ -520,6 +546,8 @@ export const translations = {
     quickFilterMyTasks: 'Tasks Assigned to Me',
     quickFilterDueSoon: 'Due Soon (Next 3 Days)',
     quickFilterCompleted: 'Completed Tasks',
+    quickFilterMemberTasks: 'Tasks of',
+    viewMemberTasks: 'View Tasks',
     showingFilteredTasks: 'Filtered Tasks View',
     backToAllBoard: 'Back to Full Kanban Board',
 
