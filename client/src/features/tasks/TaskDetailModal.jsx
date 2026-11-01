@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar,
   AlertCircle,
@@ -47,6 +47,11 @@ export const TaskDetailModal = ({
   // Subtasks State
   const [addingSubtask, setAddingSubtask] = useState(false);
 
+  // Refs to decouple background fetching from subtask mutations
+  const initialTaskRef = useRef(initialTask);
+  initialTaskRef.current = initialTask;
+  const isSubtaskMutatingRef = useRef(false);
+
   const handleTaskUpdatedInternal = (updatedTask) => {
     setTask(updatedTask);
     onTaskUpdated?.(updatedTask);
@@ -69,13 +74,14 @@ export const TaskDetailModal = ({
     setError,
   });
 
-  // Load Task & Comments
+  // Load Task & Comments - only triggers when modal opens or taskId switches
   useEffect(() => {
     if (!isOpen || !taskId) return;
 
     let isMounted = true;
-    if (initialTask) {
-      setTask(initialTask);
+    const seedTask = initialTaskRef.current;
+    if (seedTask && String(seedTask._id) === String(taskId)) {
+      setTask(seedTask);
       setLoading(false);
     } else {
       setLoading(true);
@@ -93,7 +99,20 @@ export const TaskDetailModal = ({
 
         if (isMounted && taskRes.data?.success) {
           const fetchedTask = taskRes.data.data.task;
-          setTask(fetchedTask);
+          setTask((current) => {
+            // If the user has an in-flight subtask mutation, preserve the local subtasks
+            if (
+              isSubtaskMutatingRef.current &&
+              current &&
+              String(current._id) === String(fetchedTask._id)
+            ) {
+              return {
+                ...fetchedTask,
+                subtasks: current.subtasks || fetchedTask.subtasks,
+              };
+            }
+            return fetchedTask;
+          });
           setComments(commentsRes.data?.data?.comments || []);
           setIsMuted(Boolean(commentsRes.data?.data?.meta?.isMuted));
           setCanMute(Boolean(commentsRes.data?.data?.meta?.canMute));
@@ -112,7 +131,7 @@ export const TaskDetailModal = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, taskId, initialTask]);
+  }, [isOpen, taskId]);
 
   // Change Status
   const handleStatusChange = async (newStatus) => {
@@ -183,9 +202,16 @@ export const TaskDetailModal = ({
   const handleToggleSubtask = async (subtaskId, index) => {
     if (!task) return;
 
-    const updatedSubtasks = (task.subtasks || []).map((st, i) =>
-      st._id === subtaskId || i === index ? { ...st, completed: !st.completed } : st
-    );
+    const previousTask = task;
+    isSubtaskMutatingRef.current = true;
+
+    const updatedSubtasks = (task.subtasks || []).map((st, i) => {
+      const isMatch = subtaskId
+        ? String(st._id) === String(subtaskId)
+        : i === index;
+      return isMatch ? { ...st, completed: !st.completed } : st;
+    });
+
     const optimisticTask = { ...task, subtasks: updatedSubtasks };
     handleTaskUpdatedInternal(optimisticTask);
 
@@ -200,13 +226,19 @@ export const TaskDetailModal = ({
       }
     } catch (err) {
       console.error('Failed to toggle subtask:', err);
+      handleTaskUpdatedInternal(previousTask);
+      setError(err.response?.data?.message || 'Failed to toggle subtask');
+    } finally {
+      isSubtaskMutatingRef.current = false;
     }
   };
 
   const handleAddNewSubtask = async (title) => {
     if (!title || !task || addingSubtask) return;
     setAddingSubtask(true);
+    isSubtaskMutatingRef.current = true;
 
+    const previousTask = task;
     const newSubtask = { title, completed: false };
     const nextSubtasks = [...(task.subtasks || []), newSubtask];
 
@@ -220,15 +252,21 @@ export const TaskDetailModal = ({
       }
     } catch (err) {
       console.error('Failed to add subtask:', err);
+      handleTaskUpdatedInternal(previousTask);
+      setError(err.response?.data?.message || 'Failed to add subtask');
     } finally {
       setAddingSubtask(false);
+      isSubtaskMutatingRef.current = false;
     }
   };
 
   const handleDeleteSubtask = async (subtaskId, index) => {
     if (!task) return;
+    isSubtaskMutatingRef.current = true;
+
+    const previousTask = task;
     const nextSubtasks = (task.subtasks || []).filter((st, i) =>
-      st._id ? st._id !== subtaskId : i !== index
+      subtaskId ? String(st._id) !== String(subtaskId) : i !== index
     );
 
     const optimisticTask = { ...task, subtasks: nextSubtasks };
@@ -241,6 +279,10 @@ export const TaskDetailModal = ({
       }
     } catch (err) {
       console.error('Failed to delete subtask:', err);
+      handleTaskUpdatedInternal(previousTask);
+      setError(err.response?.data?.message || 'Failed to delete subtask');
+    } finally {
+      isSubtaskMutatingRef.current = false;
     }
   };
 
