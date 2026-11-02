@@ -1,91 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom';
-import { ShieldAlert, Home } from 'lucide-react';
+import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext.jsx';
-import { LanguageProvider, useLanguage } from './context/LanguageContext.jsx';
-import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import { LanguageProvider } from './context/LanguageContext.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
 import { WorkspaceProvider, useWorkspace } from './context/WorkspaceContext.jsx';
 import { CategoryProvider } from './context/CategoryContext.jsx';
 import { NotificationProvider } from './context/NotificationContext.jsx';
 import { Sidebar } from './layouts/Sidebar.jsx';
 import { TopHeader } from './layouts/TopHeader.jsx';
-import { TaskBoard } from './features/tasks/TaskBoard.jsx';
-import { AuthScreen } from './features/auth/AuthScreen.jsx';
-import { CreateOrgModal } from './features/workspaces/CreateOrgModal.jsx';
-import { InviteMemberModal } from './features/workspaces/InviteMemberModal.jsx';
-import { CategoryManagerModal } from './features/categories/CategoryManagerModal.jsx';
-import { CommandPalette } from './components/CommandPalette/CommandPalette.jsx';
-import { TaskImportExportModal } from './features/tasks/TaskImportExportModal.jsx';
-import { TelegramSettingsModal } from './features/telegram/TelegramSettingsModal.jsx';
-import { MemberRemovalRequestsModal } from './features/workspaces/MemberRemovalRequestsModal.jsx';
 import { Footer } from './layouts/Footer.jsx';
+import { TaskBoard } from './features/tasks/TaskBoard.jsx';
+import { WorkspaceAccessDenied } from './features/workspaces/WorkspaceAccessDenied.jsx';
+import { AppModals } from './components/modals/index.js';
 import { ErrorBoundary } from './components/common/ErrorBoundary.jsx';
-import { ServerWakeupScreen } from './components/common/ServerWakeupScreen.jsx';
-
-const GlobalAppLoader = () => {
-  const { serverStatus, elapsedSeconds, retryAuth } = useAuth();
-  return (
-    <ServerWakeupScreen
-      status={serverStatus}
-      elapsedSeconds={elapsedSeconds}
-      onRetry={retryAuth}
-    />
-  );
-};
-
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) {
-    return <GlobalAppLoader />;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  return children;
-};
-
-const PublicOnlyRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) {
-    return <GlobalAppLoader />;
-  }
-
-  if (user) {
-    const destination = location.state?.from
-      ? `${location.state.from.pathname}${location.state.from.search || ''}`
-      : '/personal';
-    return <Navigate to={destination} replace />;
-  }
-
-  return children;
-};
-
-const RootRedirect = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return <GlobalAppLoader />;
-  }
-
-  return <Navigate to={user ? '/personal' : '/login'} replace />;
-};
+import { AppRoutes } from './routes/AppRoutes.jsx';
 
 const MainApp = () => {
   const { isUnauthorizedWorkspace, loadingWorkspaces } = useWorkspace();
-  const { lang } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -101,7 +32,7 @@ const MainApp = () => {
   const [allTasks, setAllTasks] = useState([]);
   const [selectedDetailTaskId, setSelectedDetailTaskId] = useState(null);
 
-  // Modals
+  // Modals State
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [createOrgOpen, setCreateOrgOpen] = useState(false);
   const [inviteMemberOpen, setInviteMemberOpen] = useState(false);
@@ -120,7 +51,7 @@ const MainApp = () => {
     setImportExportModalOpen(true);
   };
 
-  // Auto-open MemberRemovalRequestsModal if query param memberRemovalRequest is present in URL
+  // Auto-open MemberRemovalRequestsModal if query param memberRemovalRequest is present
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const reqId = params.get('memberRemovalRequest');
@@ -155,7 +86,7 @@ const MainApp = () => {
 
   return (
     <div className="min-h-screen bg-[#edf1f7] dark:bg-[#0B0F17] transition-colors duration-200 flex">
-      {/* 1. Collapsible & Responsive Sidebar */}
+      {/* 1. Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -172,7 +103,7 @@ const MainApp = () => {
 
       {/* 2. Main Content Area */}
       <div className="flex-1 flex flex-col lg:ms-72 min-w-0 transition-all">
-        {/* Sticky Top Header with Search & Quick View Controls */}
+        {/* Sticky Top Header */}
         <TopHeader
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           search={search}
@@ -189,7 +120,7 @@ const MainApp = () => {
           onOpenTelegramSettings={() => setTelegramSettingsOpen(true)}
         />
 
-        {/* Dynamic Task Board Content */}
+        {/* Dynamic Board Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {isTeamRoute && loadingWorkspaces ? (
             <div className="space-y-6">
@@ -201,30 +132,7 @@ const MainApp = () => {
               </div>
             </div>
           ) : isTeamRoute && !loadingWorkspaces && isUnauthorizedWorkspace ? (
-            <div className="flex items-center justify-center min-h-[60vh]">
-              <div className="max-w-md w-full glass-panel p-8 rounded-3xl border border-amber-500/30 text-center space-y-4 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
-                  <ShieldAlert className="w-7 h-7" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                    {lang === 'fa' ? 'سازمان یافت نشد یا دسترسی ندارید' : 'Workspace Not Found or Access Denied'}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {lang === 'fa'
-                      ? 'شما عضو این فضای کاری نیستید یا این سازمان حذف شده است.'
-                      : 'You are not a member of this workspace or it does not exist.'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => navigate('/personal')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 transition-all shadow-md shadow-brand-500/25 active:scale-95"
-                >
-                  <Home className="w-3.5 h-3.5" />
-                  <span>{lang === 'fa' ? 'بازگشت به فضای شخصی' : 'Go to Personal Space'}</span>
-                </button>
-              </div>
-            </div>
+            <WorkspaceAccessDenied />
           ) : (
             <TaskBoard
               search={search}
@@ -246,30 +154,33 @@ const MainApp = () => {
           )}
         </main>
 
-        {/* Minimal Clean Footer */}
         <Footer />
       </div>
 
-      {/* Modals */}
-      <CreateOrgModal
-        isOpen={createOrgOpen}
-        onClose={() => setCreateOrgOpen(false)}
-      />
-
-      <InviteMemberModal
-        isOpen={inviteMemberOpen}
-        onClose={() => setInviteMemberOpen(false)}
-      />
-
-      <CategoryManagerModal
-        isOpen={categoryManagerOpen}
-        onClose={() => setCategoryManagerOpen(false)}
-      />
-
-      <CommandPalette
-        isOpen={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        tasks={allTasks}
+      {/* 3. Global Modals Container */}
+      <AppModals
+        createOrgOpen={createOrgOpen}
+        onCloseCreateOrg={() => setCreateOrgOpen(false)}
+        inviteMemberOpen={inviteMemberOpen}
+        onCloseInviteMember={() => setInviteMemberOpen(false)}
+        categoryManagerOpen={categoryManagerOpen}
+        onCloseCategoryManager={() => setCategoryManagerOpen(false)}
+        commandPaletteOpen={commandPaletteOpen}
+        onCloseCommandPalette={() => setCommandPaletteOpen(false)}
+        importExportModalOpen={importExportModalOpen}
+        onCloseImportExport={() => setImportExportModalOpen(false)}
+        importExportTab={importExportTab}
+        onTasksImported={(importedTasks) => {
+          setAllTasks((prev) => [...importedTasks, ...prev]);
+          setLastImportedTasks(importedTasks);
+          setTasksRefreshTrigger((prev) => prev + 1);
+        }}
+        telegramSettingsOpen={telegramSettingsOpen}
+        onCloseTelegramSettings={() => setTelegramSettingsOpen(false)}
+        removalRequestsModalOpen={removalRequestsModalOpen}
+        onCloseRemovalRequests={handleCloseRemovalRequests}
+        targetRemovalRequestId={targetRemovalRequestId}
+        allTasks={allTasks}
         onSelectTask={(taskId) => setSelectedDetailTaskId(taskId)}
         onOpenNewTask={() => setTaskModalOpen(true)}
         onOpenCategoryManager={() => setCategoryManagerOpen(true)}
@@ -278,29 +189,6 @@ const MainApp = () => {
         onOpenImportExport={handleOpenImportExport}
         onFilterChange={(filterId) => setActiveFilter(filterId)}
         onViewModeChange={(mode) => setViewMode(mode)}
-      />
-
-      <TaskImportExportModal
-        isOpen={importExportModalOpen}
-        onClose={() => setImportExportModalOpen(false)}
-        tasks={allTasks}
-        initialTab={importExportTab}
-        onTasksImported={(importedTasks) => {
-          setAllTasks((prev) => [...importedTasks, ...prev]);
-          setLastImportedTasks(importedTasks);
-          setTasksRefreshTrigger((prev) => prev + 1);
-        }}
-      />
-
-      <TelegramSettingsModal
-        isOpen={telegramSettingsOpen}
-        onClose={() => setTelegramSettingsOpen(false)}
-      />
-
-      <MemberRemovalRequestsModal
-        isOpen={removalRequestsModalOpen}
-        onClose={handleCloseRemovalRequests}
-        targetRequestId={targetRemovalRequestId}
       />
     </div>
   );
@@ -317,42 +205,7 @@ export default function App() {
                 <CategoryProvider>
                   <NotificationProvider>
                     <ErrorBoundary>
-                      <Routes>
-                        <Route
-                          path="/login"
-                          element={
-                            <PublicOnlyRoute>
-                              <AuthScreen />
-                            </PublicOnlyRoute>
-                          }
-                        />
-                        <Route
-                          path="/register"
-                          element={
-                            <PublicOnlyRoute>
-                              <AuthScreen />
-                            </PublicOnlyRoute>
-                          }
-                        />
-                        <Route
-                          path="/personal"
-                          element={
-                            <ProtectedRoute>
-                              <MainApp />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="/teams/:organizationId"
-                          element={
-                            <ProtectedRoute>
-                              <MainApp />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route path="/" element={<RootRedirect />} />
-                        <Route path="*" element={<RootRedirect />} />
-                      </Routes>
+                      <AppRoutes MainApp={MainApp} />
                     </ErrorBoundary>
                   </NotificationProvider>
                 </CategoryProvider>

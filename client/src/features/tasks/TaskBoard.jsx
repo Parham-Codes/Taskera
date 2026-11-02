@@ -1,24 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  UserCheck,
-  Bell,
-  Tag,
-  User,
-} from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useWorkspace } from '../../context/WorkspaceContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useLanguage } from '../../context/LanguageContext.jsx';
 import { useNotifications } from '../../context/NotificationContext.jsx';
 import { useCategories } from '../../context/CategoryContext.jsx';
-import { TaskModal } from './TaskModal.jsx';
 import { TaskStats } from './TaskStats.jsx';
-import { TaskDetailModal } from './TaskDetailModal.jsx';
-import { CommentDrawer } from '../comments/CommentDrawer.jsx';
-import { ConfirmModal } from '../../components/ui/index.js';
+import { useTaskBoardFilters } from './hooks/useTaskBoardFilters.js';
 
 import { TaskBoardNotificationView } from './components/board/TaskBoardNotificationView.jsx';
 import { TaskBoardFilterHeader } from './components/board/TaskBoardFilterHeader.jsx';
@@ -28,6 +16,7 @@ import { TaskKanbanBoard } from './components/board/TaskKanbanBoard.jsx';
 import { TaskFocusedStackView } from './components/board/TaskFocusedStackView.jsx';
 import { TaskListView } from './components/board/TaskListView.jsx';
 import { TaskCalendarView } from './components/board/TaskCalendarView.jsx';
+import { TaskBoardModals } from './components/board/TaskBoardModals.jsx';
 import { formatTaskDate } from './utils/taskHelpers.js';
 
 export const TaskBoard = ({
@@ -60,20 +49,37 @@ export const TaskBoard = ({
   const [editingTask, setEditingTask] = useState(null);
   const [activeDetailTaskId, setActiveDetailTaskId] = useState(null);
   const [activeCommentTask, setActiveCommentTask] = useState(null);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
-  // Reset status filter whenever sidebar filter switches
-  useEffect(() => {
-    setSelectedStatusFilter('all');
-  }, [sidebarFilter]);
-
   // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverColumnId, setDragOverColumnId] = useState(null);
+
+  // Modular Filter Hook: Encapsulates all search, category, member, status, and priority filtering
+  const currentUserId = String(user?.id || user?._id || '');
+  const {
+    selectedCategoryFilter,
+    setSelectedCategoryFilter,
+    selectedStatusFilter,
+    setSelectedStatusFilter,
+    isCategoryFromSidebar,
+    isMemberFromSidebar,
+    categoryScopedTasks,
+    filteredTasks,
+    filterMeta,
+  } = useTaskBoardFilters({
+    allTasks,
+    sidebarFilter,
+    priorityFilter,
+    search,
+    categories,
+    members,
+    currentUserId,
+    lang,
+    t,
+  });
 
   // Sync externalDetailTaskId from header notification click or deep link URL query param
   useEffect(() => {
@@ -169,7 +175,7 @@ export const TaskBoard = ({
         // Compute stable counts for sidebar
         if (onTaskCountsUpdate) {
           const now = Date.now();
-          const currentUserId = String(user?.id || user?._id || '');
+          const userIdStr = String(user?.id || user?._id || '');
           const counts = {
             all: fetchedTasks.length,
             inProgress: fetchedTasks.filter(
@@ -179,7 +185,7 @@ export const TaskBoard = ({
               const assignees = Array.isArray(t.assignedTo)
                 ? t.assignedTo
                 : t.assignedTo ? [t.assignedTo] : [];
-              return assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
+              return assignees.some((a) => String(a?._id || a?.id || a) === userIdStr);
             }).length,
             dueSoon: fetchedTasks.filter((t) => {
               if (!t.dueDate || t.status === 'completed') return false;
@@ -214,77 +220,6 @@ export const TaskBoard = ({
       });
     }
   }, [newImportedTasks]);
-
-  // Client-side filtering: 0ms latency, zero layout shift, stable TaskStats!
-  const filteredTasks = useMemo(() => {
-    return allTasks.filter((task) => {
-      // 1. Sidebar filter
-      if (sidebarFilter === 'in-progress') {
-        if (task.status !== 'in-progress' && task.status !== 'review') return false;
-      } else if (sidebarFilter === 'my-tasks') {
-        const assignees = Array.isArray(task.assignedTo)
-          ? task.assignedTo
-          : task.assignedTo ? [task.assignedTo] : [];
-        const currentUserId = String(user?.id || user?._id || '');
-        const isMine = assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
-        if (!isMine) return false;
-      } else if (sidebarFilter === 'due-soon') {
-        if (!task.dueDate || task.status === 'completed') return false;
-        const due = new Date(task.dueDate).getTime();
-        const now = Date.now();
-        if (due < now || due > now + 3 * 24 * 60 * 60 * 1000) return false;
-      } else if (sidebarFilter === 'completed') {
-        if (task.status !== 'completed') return false;
-      } else if (sidebarFilter?.startsWith('cat:')) {
-        const targetCatId = sidebarFilter.replace('cat:', '');
-        const catId = task.categoryId?._id || task.categoryId;
-        if (String(catId) !== String(targetCatId)) return false;
-      } else if (sidebarFilter?.startsWith('member:')) {
-        const targetMemberId = sidebarFilter.replace('member:', '');
-        const assignees = Array.isArray(task.assignedTo)
-          ? task.assignedTo
-          : task.assignedTo ? [task.assignedTo] : [];
-        const isAssigned = assignees.some(
-          (a) => String(a?._id || a?.id || a) === targetMemberId
-        );
-        if (!isAssigned) return false;
-      }
-
-      // 2. Priority Filter from Header
-      if (priorityFilter !== 'all' && task.priority !== priorityFilter) {
-        return false;
-      }
-
-      // 3. Search text
-      if (search?.trim()) {
-        const q = search.trim().toLowerCase();
-        const matchTitle = task.title?.toLowerCase().includes(q);
-        const matchDesc = task.description?.toLowerCase().includes(q);
-        if (!matchTitle && !matchDesc) return false;
-      }
-
-      // 4. Category Filter
-      if (selectedCategoryFilter !== 'all') {
-        const catId = task.categoryId?._id || task.categoryId;
-        if (catId !== selectedCategoryFilter) return false;
-      }
-
-      // 5. Status Filter (active when in a Category or in ListView)
-      if (selectedStatusFilter !== 'all') {
-        if (task.status !== selectedStatusFilter) return false;
-      }
-
-      return true;
-    });
-  }, [
-    allTasks,
-    sidebarFilter,
-    priorityFilter,
-    search,
-    selectedCategoryFilter,
-    selectedStatusFilter,
-    user?.id,
-  ]);
 
   const handleCardDrop = async (taskId, targetColumnId) => {
     if (!taskId || !targetColumnId) return;
@@ -341,7 +276,6 @@ export const TaskBoard = ({
     if (!task) return;
     const prevDueDate = task.dueDate;
 
-    // Optimistically update dueDate
     setAllTasks((prev) =>
       prev.map((t) => (t._id === taskId ? { ...t, dueDate: newDueDate } : t))
     );
@@ -350,7 +284,6 @@ export const TaskBoard = ({
       await api.patch(`/tasks/${taskId}`, { dueDate: newDueDate });
     } catch (err) {
       console.error('Failed to update task due date on drop:', err);
-      // Rollback on failure
       setAllTasks((prev) =>
         prev.map((t) => (t._id === taskId ? { ...t, dueDate: prevDueDate } : t))
       );
@@ -413,8 +346,8 @@ export const TaskBoard = ({
             const assignees = Array.isArray(t.assignedTo)
               ? t.assignedTo
               : t.assignedTo ? [t.assignedTo] : [];
-            const currentUserId = String(user?.id || user?._id || '');
-            return assignees.some((a) => String(a?._id || a?.id || a) === currentUserId);
+            const userIdStr = String(user?.id || user?._id || '');
+            return assignees.some((a) => String(a?._id || a?.id || a) === userIdStr);
           }).length,
           dueSoon: nextTasks.filter((t) => {
             if (!t.dueDate || t.status === 'completed') return false;
@@ -434,92 +367,10 @@ export const TaskBoard = ({
     [lang]
   );
 
-  // Check if viewing a specific category selected from Sidebar
-  const isCategoryFromSidebar = Boolean(sidebarFilter?.startsWith('cat:'));
-  const isMemberFromSidebar = Boolean(sidebarFilter?.startsWith('member:'));
-  const selectedSidebarCategory = isCategoryFromSidebar
-    ? categories.find((c) => String(c._id) === sidebarFilter.replace('cat:', ''))
-    : null;
-  const selectedSidebarMember = isMemberFromSidebar
-    ? (members || []).find((m) => String(m?.id || m?._id) === sidebarFilter.replace('member:', ''))
-    : null;
-
-  // Compute tasks in the current category scope for accurate status counts
-  const categoryScopedTasks = useMemo(() => {
-    if (isCategoryFromSidebar) {
-      const targetCatId = sidebarFilter.replace('cat:', '');
-      return allTasks.filter((task) => {
-        const catId = task.categoryId?._id || task.categoryId;
-        return String(catId) === String(targetCatId);
-      });
-    }
-    if (isMemberFromSidebar) {
-      const targetMemberId = sidebarFilter.replace('member:', '');
-      return allTasks.filter((task) => {
-        const assignees = Array.isArray(task.assignedTo)
-          ? task.assignedTo
-          : task.assignedTo ? [task.assignedTo] : [];
-        return assignees.some((a) => String(a?._id || a?.id || a) === targetMemberId);
-      });
-    }
-    return allTasks;
-  }, [allTasks, isCategoryFromSidebar, isMemberFromSidebar, sidebarFilter]);
-
-  // Filter metadata when viewing a specific sidebar filter
-  const filterMeta = useMemo(() => {
-    if (isCategoryFromSidebar) {
-      return {
-        title: selectedSidebarCategory?.name || t('categories'),
-        icon: Tag,
-        color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
-        customColor: selectedSidebarCategory?.color || '#4F5AE4',
-      };
-    }
-
-    if (isMemberFromSidebar) {
-      const memberName = selectedSidebarMember?.name || selectedSidebarMember?.email?.split('@')[0] || t('teamMembers');
-      return {
-        title: lang === 'fa' ? `تسک‌های ${memberName}` : `${memberName}'s Tasks`,
-        icon: User,
-        color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
-      };
-    }
-
-    return {
-      'in-progress': {
-        title: t('quickFilterInProgress'),
-        icon: Clock,
-        color: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-      },
-      'my-tasks': {
-        title: t('quickFilterMyTasks'),
-        icon: UserCheck,
-        color: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-      },
-      'due-soon': {
-        title: t('quickFilterDueSoon'),
-        icon: AlertTriangle,
-        color: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
-      },
-      'completed': {
-        title: t('quickFilterCompleted'),
-        icon: CheckCircle2,
-        color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-      },
-      'notifications': {
-        title: t('notificationsTitle'),
-        icon: Bell,
-        color: 'text-brand-500 bg-brand-500/10 border-brand-500/20',
-      },
-    }[sidebarFilter];
-  }, [sidebarFilter, isCategoryFromSidebar, isMemberFromSidebar, selectedSidebarCategory, selectedSidebarMember, t, lang]);
-
-  // Selected task object for instant 0ms TaskDetailModal rendering
   const selectedTaskForDetail = allTasks.find(
     (t) => String(t._id) === String(activeDetailTaskId)
   );
 
-  // Drag and drop event helpers
   const handleDragOverColumn = (e, columnId) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -547,7 +398,7 @@ export const TaskBoard = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. STABLE Micro-Stats Overview Bar */}
+      {/* 1. Micro-Stats Overview Bar */}
       <TaskStats tasks={allTasks} />
 
       {/* 2. Notification Center View */}
@@ -575,10 +426,7 @@ export const TaskBoard = ({
             />
           )}
 
-          {/* Category Filter vs Status Filter Bar:
-              - If a category is selected from the sidebar: DO NOT show category pills. Show Status Filter Tabs!
-              - If in ListView (نمای دوم) for All Tasks: Show Status Filter Tabs (with 'همه' tab)!
-              - In standard Kanban board: Show Category Filter Pills. */}
+          {/* Filter Bar (Category vs Status Filter Tabs) */}
           {isCategoryFromSidebar || isMemberFromSidebar ? (
             <TaskStatusFilterBar
               statusColumns={STATUS_COLUMNS}
@@ -618,7 +466,7 @@ export const TaskBoard = ({
             )
           )}
 
-          {/* 4. Tasks Presentation */}
+          {/* 4. Presentation Views */}
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
@@ -629,7 +477,6 @@ export const TaskBoard = ({
               ))}
             </div>
           ) : viewMode === 'calendar' ? (
-            /* Calendar View */
             <TaskCalendarView
               filteredTasks={filteredTasks}
               onOpenDetail={(task) => setActiveDetailTaskId(task._id)}
@@ -644,7 +491,6 @@ export const TaskBoard = ({
               t={t}
             />
           ) : sidebarFilter === 'all' && viewMode === 'kanban' ? (
-            /* 4-Column Kanban Board */
             <TaskKanbanBoard
               statusColumns={STATUS_COLUMNS}
               filteredTasks={filteredTasks}
@@ -671,7 +517,6 @@ export const TaskBoard = ({
               t={t}
             />
           ) : sidebarFilter !== 'all' && viewMode === 'kanban' ? (
-            /* Focused Filtered Tasks: FULL-WIDTH Responsive Stack */
             <TaskFocusedStackView
               filteredTasks={filteredTasks}
               statusColumns={STATUS_COLUMNS}
@@ -690,7 +535,6 @@ export const TaskBoard = ({
               t={t}
             />
           ) : (
-            /* List View */
             <TaskListView
               filteredTasks={filteredTasks}
               statusColumns={STATUS_COLUMNS}
@@ -710,52 +554,34 @@ export const TaskBoard = ({
         </>
       )}
 
-      {/* 5. Dedicated Task Detail & Time Tracker Modal */}
-      <TaskDetailModal
-        isOpen={Boolean(activeDetailTaskId)}
-        onClose={() => setActiveDetailTaskId(null)}
-        taskId={activeDetailTaskId}
-        initialTask={selectedTaskForDetail}
-        onTaskUpdated={handleTaskUpdatedFromModal}
-        onEditTask={(t) => {
+      {/* 5. Modals Orchestrator */}
+      <TaskBoardModals
+        activeDetailTaskId={activeDetailTaskId}
+        onCloseDetailModal={() => setActiveDetailTaskId(null)}
+        selectedTaskForDetail={selectedTaskForDetail}
+        onTaskUpdatedFromModal={handleTaskUpdatedFromModal}
+        onEditTaskFromDetail={(t) => {
           setEditingTask(t);
           onOpenTaskModal();
         }}
-        onDeleteTask={handleRequestDeleteTask}
-      />
-
-      {/* 6. Create / Edit Task Modal */}
-      <TaskModal
-        isOpen={taskModalOpen}
-        onClose={() => {
+        onRequestDeleteTask={handleRequestDeleteTask}
+        taskModalOpen={taskModalOpen}
+        onCloseTaskModal={() => {
           setEditingTask(null);
           setCalendarSelectedDate(null);
           onCloseTaskModal();
         }}
-        onSubmit={handleSaveTask}
-        initialTask={editingTask}
-        defaultDueDate={calendarSelectedDate || ''}
+        onSaveTask={handleSaveTask}
+        editingTask={editingTask}
+        calendarSelectedDate={calendarSelectedDate}
         onOpenCategoryManager={onOpenCategoryManager}
-      />
-
-      {/* 7. Comment Drawer */}
-      <CommentDrawer
-        isOpen={Boolean(activeCommentTask)}
-        onClose={() => setActiveCommentTask(null)}
-        task={activeCommentTask}
-      />
-
-      {/* 8. Confirm Delete Task Modal */}
-      <ConfirmModal
-        isOpen={Boolean(taskToDelete)}
-        onClose={() => !isDeletingTask && setTaskToDelete(null)}
-        onConfirm={handleConfirmDeleteTask}
-        title={t('confirmDeleteTaskTitle')}
-        description={t('confirmDeleteTaskDesc')}
-        confirmText={t('confirmDeleteBtn')}
-        cancelText={t('cancel')}
-        variant="danger"
-        loading={isDeletingTask}
+        activeCommentTask={activeCommentTask}
+        onCloseCommentDrawer={() => setActiveCommentTask(null)}
+        taskToDelete={taskToDelete}
+        onCloseDeleteModal={() => !isDeletingTask && setTaskToDelete(null)}
+        onConfirmDeleteTask={handleConfirmDeleteTask}
+        isDeletingTask={isDeletingTask}
+        t={t}
       />
     </div>
   );
