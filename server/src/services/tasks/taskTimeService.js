@@ -1,4 +1,5 @@
 import { Task } from '../../models/index.js';
+import { emitToWorkspace } from '../socketService.js';
 import { TaskError } from './taskErrors.js';
 import {
   assertValidObjectId,
@@ -99,6 +100,16 @@ export const taskTimeService = {
       .populate('categoryId', 'name color')
       .lean();
 
+    // Real-Time Socket.IO Synchronization
+    const wsId = task.organizationId
+      ? task.organizationId.toString()
+      : `personal:${task.createdBy.toString()}`;
+    emitToWorkspace(wsId, 'task:updated', {
+      task: populatedTask,
+      workspaceId: wsId,
+      senderId: user.id || user._id?.toString(),
+    });
+
     return {
       task: populatedTask,
       activeLog,
@@ -160,6 +171,16 @@ export const taskTimeService = {
       .populate('categoryId', 'name color')
       .lean();
 
+    // Real-Time Socket.IO Synchronization
+    const wsId = task.organizationId
+      ? task.organizationId.toString()
+      : `personal:${task.createdBy.toString()}`;
+    emitToWorkspace(wsId, 'task:updated', {
+      task: populatedTask,
+      workspaceId: wsId,
+      senderId: user.id || user._id?.toString(),
+    });
+
     return {
       task: populatedTask,
       loggedSeconds: durationSeconds,
@@ -218,6 +239,16 @@ export const taskTimeService = {
       .populate('assignedTo', 'name email avatar')
       .populate('categoryId', 'name color')
       .lean();
+
+    // Real-Time Socket.IO Synchronization
+    const wsId = task.organizationId
+      ? task.organizationId.toString()
+      : `personal:${task.createdBy.toString()}`;
+    emitToWorkspace(wsId, 'task:updated', {
+      task: populatedTask,
+      workspaceId: wsId,
+      senderId: user.id || user._id?.toString(),
+    });
 
     return {
       task: populatedTask,

@@ -9,6 +9,15 @@ const getBaseURL = () => {
   return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
 };
 
+export const getSocketURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) {
+    return 'http://localhost:7000';
+  }
+  const cleanUrl = envUrl.trim().replace(/\/+$/, '');
+  return cleanUrl.replace(/\/api$/, '');
+};
+
 export const api = axios.create({
   baseURL: getBaseURL(),
   withCredentials: true, // Send httpOnly cookies with requests

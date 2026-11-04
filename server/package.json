@@ -7,7 +7,7 @@
   "type": "module",
   "main": "app.js",
   "scripts": {
-    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js && node tests/reminder.test.js && node tests/telegram.test.js && node tests/internalReminders.test.js && node tests/crossOriginAuth.test.js && node tests/memberRemoval.test.js",
+    "test": "node tests/auth.test.js && node tests/integration.test.js && node tests/rbac.test.js && node tests/reminder.test.js && node tests/telegram.test.js && node tests/internalReminders.test.js && node tests/crossOriginAuth.test.js && node tests/memberRemoval.test.js && node tests/socket.test.js",
     "test:auth": "node tests/auth.test.js",
     "test:integration": "node tests/integration.test.js",
     "test:rbac": "node tests/rbac.test.js",
@@ -16,6 +16,7 @@
     "test:internal": "node tests/internalReminders.test.js",
     "test:cross-origin": "node tests/crossOriginAuth.test.js",
     "test:removal": "node tests/memberRemoval.test.js",
+    "test:socket": "node tests/socket.test.js",
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
@@ -28,6 +29,10 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.11.2",
+    "socket.io": "^4.8.4",
     "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
   }
 }

@@ -2,9 +2,11 @@ import 'dotenv/config';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
 import { server } from "./app.js";
 import connectDB from "./config/db.js";
 import { startReminderScheduler, stopReminderScheduler } from "./services/reminderScheduler.js";
+import { initSocketServer } from "./services/socketService.js";
 
 // Ensure .env is resolved even when executed outside server/ directory
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,7 +26,11 @@ async function bootstrap() {
     console.log('[Server] In-process reminder scheduler is disabled (ENABLE_REMINDER_SCHEDULER=false). Recurring reminders will rely on external trigger.');
   }
 
-  const httpServer = server.listen(PORT, () => {
+  // Create HTTP server wrapping Express application and attach Socket.IO
+  const httpServer = http.createServer(server);
+  initSocketServer(httpServer);
+
+  httpServer.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 
@@ -41,4 +47,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-

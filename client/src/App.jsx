@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { WorkspaceProvider, useWorkspace } from './context/WorkspaceContext.jsx';
 import { CategoryProvider } from './context/CategoryContext.jsx';
 import { NotificationProvider } from './context/NotificationContext.jsx';
+import { SocketProvider } from './context/SocketContext.jsx';
 import { Sidebar } from './layouts/Sidebar.jsx';
 import { TopHeader } from './layouts/TopHeader.jsx';
 import { Footer } from './layouts/Footer.jsx';
@@ -202,13 +203,15 @@ export default function App() {
           <AuthProvider>
             <BrowserRouter basename="/Taskera">
               <WorkspaceProvider>
-                <CategoryProvider>
-                  <NotificationProvider>
-                    <ErrorBoundary>
-                      <AppRoutes MainApp={MainApp} />
-                    </ErrorBoundary>
-                  </NotificationProvider>
-                </CategoryProvider>
+                <SocketProvider>
+                  <CategoryProvider>
+                    <NotificationProvider>
+                      <ErrorBoundary>
+                        <AppRoutes MainApp={MainApp} />
+                      </ErrorBoundary>
+                    </NotificationProvider>
+                  </CategoryProvider>
+                </SocketProvider>
               </WorkspaceProvider>
             </BrowserRouter>
           </AuthProvider>

@@ -8,6 +8,7 @@ import {
   ACTIVITY_ACTIONS,
 } from '../../models/index.js';
 import { notifyTaskEventOnTelegram } from '../telegramService.js';
+import { emitToWorkspace } from '../socketService.js';
 import { TaskError } from './taskErrors.js';
 import {
   assertValidObjectId,
@@ -116,6 +117,14 @@ export const taskCrudService = {
         details: { title: task.title, assignedTo: targetAssigneeIds },
       });
     }
+
+    // Real-Time Socket.IO Synchronization
+    const wsId = targetOrgId ? targetOrgId.toString() : `personal:${user._id.toString()}`;
+    emitToWorkspace(wsId, 'task:created', {
+      task: populatedTask,
+      workspaceId: wsId,
+      senderId: user._id.toString(),
+    });
 
     // Asynchronous Telegram Notification dispatch (Non-blocking)
     (async () => {
@@ -488,6 +497,17 @@ export const taskCrudService = {
       })();
     }
 
+    // Real-Time Socket.IO Synchronization
+    const wsId = task.organizationId
+      ? task.organizationId.toString()
+      : `personal:${task.createdBy.toString()}`;
+    emitToWorkspace(wsId, 'task:updated', {
+      task: updatedTask,
+      nextTask: nextTask || null,
+      workspaceId: wsId,
+      senderId: user._id.toString(),
+    });
+
     if (nextTask) {
       return { task: updatedTask, nextTask };
     }
@@ -522,6 +542,16 @@ export const taskCrudService = {
         details: { title: task.title },
       });
     }
+
+    // Real-Time Socket.IO Synchronization
+    const wsId = task.organizationId
+      ? task.organizationId.toString()
+      : `personal:${task.createdBy.toString()}`;
+    emitToWorkspace(wsId, 'task:deleted', {
+      taskId: task._id.toString(),
+      workspaceId: wsId,
+      senderId: user._id.toString(),
+    });
 
     return { taskId };
   },

@@ -7,6 +7,7 @@ import { useNotifications } from '../../context/NotificationContext.jsx';
 import { useCategories } from '../../context/CategoryContext.jsx';
 import { TaskStats } from './TaskStats.jsx';
 import { useTaskBoardFilters } from './hooks/useTaskBoardFilters.js';
+import { useTaskRealtimeSync } from './hooks/useTaskRealtimeSync.js';
 
 import { TaskBoardNotificationView } from './components/board/TaskBoardNotificationView.jsx';
 import { TaskBoardFilterHeader } from './components/board/TaskBoardFilterHeader.jsx';
@@ -207,6 +208,16 @@ export const TaskBoard = ({
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks, refreshTrigger]);
+
+  // Real-Time Socket.IO Synchronization across team members in this workspace
+  useTaskRealtimeSync({
+    setAllTasks,
+    onTaskCountsUpdate,
+    onTasksUpdate,
+    fetchTasks,
+    activeWorkspace,
+    user,
+  });
 
   // Instant optimistic prepend when tasks are imported via AI
   useEffect(() => {

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Task, Category } from '../../models/index.js';
+import { emitToWorkspace } from '../socketService.js';
 import { TaskError } from './taskErrors.js';
 import {
   assertValidObjectId,
@@ -128,6 +129,16 @@ export const taskBatchService = {
       .populate('categoryId', 'name color')
       .sort({ createdAt: -1 })
       .lean();
+
+    // Real-Time Socket.IO Synchronization
+    const wsId = targetOrgId ? targetOrgId.toString() : `personal:${user._id.toString()}`;
+    for (const created of populatedTasks) {
+      emitToWorkspace(wsId, 'task:created', {
+        task: created,
+        workspaceId: wsId,
+        senderId: user._id.toString(),
+      });
+    }
 
     return populatedTasks;
   },
