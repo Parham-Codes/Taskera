@@ -19,6 +19,7 @@ import { TaskListView } from './components/board/TaskListView.jsx';
 import { TaskCalendarView } from './components/board/TaskCalendarView.jsx';
 import { TaskBoardModals } from './components/board/TaskBoardModals.jsx';
 import { formatTaskDate } from './utils/taskHelpers.js';
+import { useContextMenu } from '../../components/contextMenu/index.js';
 
 export const TaskBoard = ({
   search,
@@ -57,6 +58,12 @@ export const TaskBoard = ({
   // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState(null);
   const [dragOverColumnId, setDragOverColumnId] = useState(null);
+
+  // Context Menu States
+  const taskMenu = useContextMenu();
+  const columnMenu = useContextMenu();
+  const dayMenu = useContextMenu();
+  const [defaultColumnStatus, setDefaultColumnStatus] = useState('todo');
 
   // Modular Filter Hook: Encapsulates all search, category, member, status, and priority filtering
   const currentUserId = String(user?.id || user?._id || '');
@@ -401,9 +408,140 @@ export const TaskBoard = ({
     handleCardDrop(taskId, columnId);
   };
 
-  const handleOpenNewTask = () => {
+  const handleOpenNewTask = (initialStatus = 'todo') => {
     setEditingTask(null);
+    setDefaultColumnStatus(initialStatus || 'todo');
     setCalendarSelectedDate(null);
+    onOpenTaskModal();
+  };
+
+  // Context Menu Handlers
+  const handlePriorityChange = async (task, newPriority) => {
+    if (!task?._id || task.priority === newPriority) return;
+    setAllTasks((prev) =>
+      prev.map((t) => (t._id === task._id ? { ...t, priority: newPriority } : t))
+    );
+    try {
+      await api.patch(`/tasks/${task._id}`, { priority: newPriority });
+    } catch (err) {
+      console.error('Failed to update priority:', err);
+      fetchTasks();
+    }
+  };
+
+  const handleCategoryChange = async (task, newCategoryId) => {
+    if (!task?._id) return;
+    const catPayload = newCategoryId || null;
+    const catObj = categories.find((c) => (c._id || c.id) === newCategoryId) || null;
+    setAllTasks((prev) =>
+      prev.map((t) => (t._id === task._id ? { ...t, categoryId: catObj } : t))
+    );
+    try {
+      await api.patch(`/tasks/${task._id}`, { categoryId: catPayload });
+    } catch (err) {
+      console.error('Failed to update category:', err);
+      fetchTasks();
+    }
+  };
+
+  const handleAssigneeToggle = async (task, memberId, shouldAssign) => {
+    if (!task?._id || !memberId) return;
+    const currentAssignees = Array.isArray(task.assignedTo)
+      ? task.assignedTo
+      : task.assignedTo ? [task.assignedTo] : [];
+    const currentIds = currentAssignees.map((a) => String(a?._id || a?.id || a));
+
+    let updatedIds;
+    if (shouldAssign) {
+      if (currentIds.includes(String(memberId))) return;
+      updatedIds = [...currentIds, String(memberId)];
+    } else {
+      updatedIds = currentIds.filter((id) => id !== String(memberId));
+    }
+
+    try {
+      const res = await api.patch(`/tasks/${task._id}`, { assignedTo: updatedIds });
+      if (res.data?.success && res.data.data?.task) {
+        setAllTasks((prev) =>
+          prev.map((t) => (t._id === task._id ? res.data.data.task : t))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to toggle assignee:', err);
+      fetchTasks();
+    }
+  };
+
+  const handleDuplicateTask = async (task) => {
+    if (!task) return;
+    try {
+      const payload = {
+        title: `${task.title} (${t('duplicate') || 'Copy'})`,
+        description: task.description || '',
+        priority: task.priority || 'medium',
+        status: 'todo',
+        categoryId: task.categoryId?._id || task.categoryId || null,
+        assignedTo: Array.isArray(task.assignedTo)
+          ? task.assignedTo.map((a) => a?._id || a?.id || a)
+          : task.assignedTo ? [task.assignedTo?._id || task.assignedTo] : [],
+        dueDate: task.dueDate || null,
+        isRecurring: false,
+        organizationId: task.organizationId || activeWorkspace?.id || activeWorkspace?._id || null,
+      };
+
+      const res = await api.post('/tasks', payload);
+      if (res.data?.success) {
+        setAllTasks((prev) => [res.data.data.task, ...prev]);
+      }
+    } catch (err) {
+      console.error('Failed to duplicate task:', err);
+    }
+  };
+
+  const handleStartTimer = async (task) => {
+    if (!task?._id) return;
+    try {
+      const res = await api.post(`/tasks/${task._id}/timer/start`);
+      if (res.data?.success && res.data.data?.task) {
+        setAllTasks((prev) =>
+          prev.map((t) => (t._id === task._id ? res.data.data.task : t))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to start timer:', err);
+    }
+  };
+
+  const handleStopTimer = async (task) => {
+    if (!task?._id) return;
+    try {
+      const res = await api.post(`/tasks/${task._id}/timer/stop`);
+      if (res.data?.success && res.data.data?.task) {
+        setAllTasks((prev) =>
+          prev.map((t) => (t._id === task._id ? res.data.data.task : t))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to stop timer:', err);
+    }
+  };
+
+  const handleCopyTaskLink = (task) => {
+    if (!task?._id) return;
+    const url = `${window.location.origin}${window.location.pathname}?task=${task._id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).catch(() => {});
+    }
+  };
+
+  const handleNewTaskInColumn = (columnId) => {
+    handleOpenNewTask(columnId);
+  };
+
+  const handleNewTaskOnDate = (dateKey) => {
+    setEditingTask(null);
+    setDefaultColumnStatus('todo');
+    setCalendarSelectedDate(dateKey);
     onOpenTaskModal();
   };
 
@@ -498,6 +636,13 @@ export const TaskBoard = ({
               }}
               onDueDateChange={handleDueDateChange}
               onNewTask={handleOpenNewTask}
+              onTaskContextMenu={(e, task) => taskMenu.open(e, task)}
+              onDayContextMenu={(e, cellOrDateKey) => {
+                const targetKey = typeof cellOrDateKey === 'string'
+                  ? cellOrDateKey
+                  : cellOrDateKey?.dateKey || cellOrDateKey;
+                dayMenu.open(e, { dateKey: targetKey });
+              }}
               lang={lang}
               t={t}
             />
@@ -522,6 +667,8 @@ export const TaskBoard = ({
               onOpenComments={(task) => setActiveCommentTask(task)}
               onCategoryClick={(catId) => setSelectedCategoryFilter(catId)}
               onNewTask={handleOpenNewTask}
+              onTaskContextMenu={(e, task) => taskMenu.open(e, task)}
+              onColumnContextMenu={(e, column) => columnMenu.open(e, column)}
               priorityBadges={PRIORITY_BADGES}
               formatDate={formatDate}
               lang={lang}
@@ -541,6 +688,7 @@ export const TaskBoard = ({
               onStatusChange={handleStatusChange}
               onOpenComments={(task) => setActiveCommentTask(task)}
               onCategoryClick={(catId) => setSelectedCategoryFilter(catId)}
+              onTaskContextMenu={(e, task) => taskMenu.open(e, task)}
               formatDate={formatDate}
               lang={lang}
               t={t}
@@ -558,6 +706,7 @@ export const TaskBoard = ({
                 onOpenTaskModal();
               }}
               onDelete={(taskId) => handleRequestDeleteTask(taskId)}
+              onTaskContextMenu={(e, task) => taskMenu.open(e, task)}
               formatDate={formatDate}
               t={t}
             />
@@ -585,6 +734,7 @@ export const TaskBoard = ({
         onSaveTask={handleSaveTask}
         editingTask={editingTask}
         calendarSelectedDate={calendarSelectedDate}
+        defaultColumnStatus={defaultColumnStatus}
         onOpenCategoryManager={onOpenCategoryManager}
         activeCommentTask={activeCommentTask}
         onCloseCommentDrawer={() => setActiveCommentTask(null)}
@@ -593,6 +743,32 @@ export const TaskBoard = ({
         onConfirmDeleteTask={handleConfirmDeleteTask}
         isDeletingTask={isDeletingTask}
         t={t}
+        // Context Menu integration
+        taskMenu={taskMenu}
+        onCloseTaskMenu={taskMenu.close}
+        onTaskMenuEdit={(task) => {
+          setEditingTask(task);
+          onOpenTaskModal();
+        }}
+        onTaskMenuDuplicate={handleDuplicateTask}
+        onTaskMenuDelete={(task) => handleRequestDeleteTask(task._id)}
+        onTaskMenuStatusChange={(task, st) => handleStatusChange(task._id, st)}
+        onTaskMenuPriorityChange={handlePriorityChange}
+        onTaskMenuCategoryChange={handleCategoryChange}
+        onTaskMenuAssigneeToggle={handleAssigneeToggle}
+        onTaskMenuStartTimer={handleStartTimer}
+        onTaskMenuStopTimer={handleStopTimer}
+        onTaskMenuCopyLink={handleCopyTaskLink}
+        categories={categories}
+        workspaceMembers={members}
+        currentUserId={currentUserId}
+        columnMenu={columnMenu}
+        onCloseColumnMenu={columnMenu.close}
+        onColumnMenuCreateTask={handleNewTaskInColumn}
+        onColumnMenuFilterStatus={(colId) => setSelectedStatusFilter(colId)}
+        dayMenu={dayMenu}
+        onCloseDayMenu={dayMenu.close}
+        onDayMenuCreateTask={handleNewTaskOnDate}
       />
     </div>
   );

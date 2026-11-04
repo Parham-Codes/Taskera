@@ -19,6 +19,8 @@ export const TaskCalendarView = ({
   onSelectDate,
   onDueDateChange,
   onNewTask,
+  onTaskContextMenu,
+  onDayContextMenu,
   lang = 'fa',
   t,
 }) => {
@@ -225,6 +227,7 @@ export const TaskCalendarView = ({
         onDragOver={handleDragOverUnscheduled}
         onDragLeave={handleDragLeaveUnscheduled}
         onDrop={handleDropOnUnscheduled}
+        onTaskContextMenu={onTaskContextMenu}
         t={t}
         lang={lang}
       />
@@ -265,6 +268,8 @@ export const TaskCalendarView = ({
           onDragOver={handleDragOverDate}
           onDragLeave={handleDragLeaveDate}
           onDrop={handleDropOnDate}
+          onTaskContextMenu={onTaskContextMenu}
+          onDayContextMenu={onDayContextMenu}
           lang={lang}
           t={t}
         />

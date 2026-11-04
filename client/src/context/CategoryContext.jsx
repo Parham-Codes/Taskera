@@ -62,6 +62,25 @@ export const CategoryProvider = ({ children }) => {
     }
   };
 
+  const updateCategory = async (categoryId, updates) => {
+    try {
+      const res = await api.patch(`/categories/${categoryId}`, updates);
+      if (res.data?.success) {
+        const updatedCat = res.data.data.category;
+        setCategories((prev) =>
+          prev.map((c) => (c._id === categoryId ? updatedCat : c))
+        );
+        return { success: true, category: updatedCat };
+      }
+      return { success: false, message: res.data?.message };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to update category',
+      };
+    }
+  };
+
   const deleteCategory = async (categoryId) => {
     try {
       const res = await api.delete(`/categories/${categoryId}`);
@@ -85,6 +104,7 @@ export const CategoryProvider = ({ children }) => {
         loading,
         fetchCategories,
         createCategory,
+        updateCategory,
         deleteCategory,
       }}
     >

@@ -12,6 +12,7 @@ export const TaskFocusedStackView = ({
   onStatusChange,
   onOpenComments,
   onCategoryClick,
+  onTaskContextMenu,
   formatDate,
   lang,
   t,
@@ -46,6 +47,7 @@ export const TaskFocusedStackView = ({
           onStatusChange={onStatusChange}
           onOpenComments={onOpenComments}
           onCategoryClick={onCategoryClick}
+          onTaskContextMenu={onTaskContextMenu}
           fullWidth={true}
         />
       ))}

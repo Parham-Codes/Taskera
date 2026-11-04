@@ -6,6 +6,7 @@ import {
   Edit2,
   AlertCircle,
   ExternalLink,
+  MoreVertical,
 } from 'lucide-react';
 import { TaskStatusMenu } from './TaskStatusMenu.jsx';
 import { TaskBadges } from './TaskBadges.jsx';
@@ -28,6 +29,7 @@ export const TaskCardCompact = ({
   onStatusChange,
   onOpenComments,
   onCategoryClick,
+  onTaskContextMenu,
   lang,
   t,
 }) => {
@@ -51,6 +53,18 @@ export const TaskCardCompact = ({
       }}
       onDragEnd={() => onDragEnd?.()}
       onClick={() => onOpenDetail?.(task)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onTaskContextMenu?.(e, task);
+      }}
+      onKeyDown={(e) => {
+        if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+          e.preventDefault();
+          e.stopPropagation();
+          onTaskContextMenu?.(e, task);
+        }
+      }}
       className={`group glass-panel rounded-2xl p-3.5 border border-slate-200/90 dark:border-slate-800 border-s-4 ${borderClass} hover:border-brand-500/60 hover:shadow-lg dark:hover:border-brand-500/50 transition-all duration-150 space-y-3 cursor-grab active:cursor-grabbing relative select-none ${
         isDragging ? 'opacity-40 scale-95 ring-2 ring-brand-500/60 shadow-2xl' : ''
       }`}
@@ -191,14 +205,29 @@ export const TaskCardCompact = ({
           size="sm"
         />
 
-        <button
-          type="button"
-          onClick={() => onOpenDetail?.(task)}
-          className="p-1.5 rounded-xl glass-input hover:border-brand-500/40 text-brand-600 dark:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-950/30 transition-colors shrink-0 cursor-pointer"
-          title={t('openDetails')}
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTaskContextMenu?.(e, task);
+            }}
+            className="p-1.5 rounded-xl glass-input hover:border-brand-500/40 text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+            title={t('moreActions')}
+            aria-label={t('moreActions')}
+          >
+            <MoreVertical className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenDetail?.(task)}
+            className="p-1.5 rounded-xl glass-input hover:border-brand-500/40 text-brand-600 dark:text-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-950/30 transition-colors shrink-0 cursor-pointer"
+            title={t('openDetails')}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );

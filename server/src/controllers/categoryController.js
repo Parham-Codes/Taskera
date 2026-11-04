@@ -182,3 +182,100 @@ export const deleteCategory = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Update Category (Name and Color) with RBAC & Workspace Duplication checks
+ */
+export const updateCategory = async (req, res, next) => {
+  try {
+    const { categoryId } = req.params;
+    const { name, color } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return errorResponse(res, {
+        message: 'Invalid Category ID format',
+        statusCode: 400,
+      });
+    }
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return errorResponse(res, {
+        message: 'Category not found',
+        statusCode: 404,
+      });
+    }
+
+    // Authorization
+    if (category.organizationId) {
+      const membership = await OrganizationMember.findOne({
+        organizationId: category.organizationId,
+        userId: req.user._id,
+      }).lean();
+
+      if (
+        !membership ||
+        (membership.role !== ORG_ROLES.OWNER &&
+          membership.role !== ORG_ROLES.MANAGER &&
+          category.createdBy.toString() !== req.user.id)
+      ) {
+        return errorResponse(res, {
+          message: 'Access denied to update this category',
+          statusCode: 403,
+        });
+      }
+    } else if (category.createdBy.toString() !== req.user.id) {
+      return errorResponse(res, {
+        message: 'Access denied to update this personal category',
+        statusCode: 403,
+      });
+    }
+
+    // Name validation & duplicate check within same workspace
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return errorResponse(res, {
+          message: 'Category name cannot be empty',
+          statusCode: 400,
+        });
+      }
+
+      if (trimmedName.length > 50) {
+        return errorResponse(res, {
+          message: 'Category name cannot exceed 50 characters',
+          statusCode: 400,
+        });
+      }
+
+      const existing = await Category.findOne({
+        _id: { $ne: category._id },
+        name: trimmedName,
+        organizationId: category.organizationId,
+        ...(category.organizationId ? {} : { createdBy: req.user._id }),
+      }).lean();
+
+      if (existing) {
+        return errorResponse(res, {
+          message: 'A category with this name already exists in this workspace',
+          statusCode: 409,
+        });
+      }
+
+      category.name = trimmedName;
+    }
+
+    if (color !== undefined && typeof color === 'string' && color.trim()) {
+      category.color = color.trim();
+    }
+
+    await category.save();
+
+    return successResponse(res, {
+      message: 'Category updated successfully',
+      data: { category },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

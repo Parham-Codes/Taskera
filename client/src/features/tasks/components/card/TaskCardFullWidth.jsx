@@ -6,6 +6,7 @@ import {
   Edit2,
   AlertCircle,
   ExternalLink,
+  MoreVertical,
 } from 'lucide-react';
 import { TaskStatusMenu } from './TaskStatusMenu.jsx';
 import { TaskBadges } from './TaskBadges.jsx';
@@ -24,6 +25,7 @@ export const TaskCardFullWidth = ({
   onStatusChange,
   onOpenComments,
   onCategoryClick,
+  onTaskContextMenu,
   lang,
   t,
 }) => {
@@ -34,6 +36,18 @@ export const TaskCardFullWidth = ({
   return (
     <div
       onClick={() => onOpenDetail?.(task)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onTaskContextMenu?.(e, task);
+      }}
+      onKeyDown={(e) => {
+        if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+          e.preventDefault();
+          e.stopPropagation();
+          onTaskContextMenu?.(e, task);
+        }
+      }}
       className={`group w-full glass-panel rounded-2xl p-4 sm:p-5 border border-slate-200/90 dark:border-slate-800 border-s-4 ${borderClass} hover:border-brand-500/60 hover:shadow-md transition-all duration-150 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4`}
     >
       {/* Left Side: Priority, Status Pill Menu, Badges, Title & Description */}
@@ -144,6 +158,19 @@ export const TaskCardFullWidth = ({
           title={t('delete')}
         >
           <Trash2 className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onTaskContextMenu?.(e, task);
+          }}
+          className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          title={t('moreActions')}
+          aria-label={t('moreActions')}
+        >
+          <MoreVertical className="w-4 h-4" />
         </button>
 
         <button

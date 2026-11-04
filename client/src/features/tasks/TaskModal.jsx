@@ -19,6 +19,7 @@ export const TaskModal = ({
   onSubmit,
   initialTask = null,
   defaultDueDate = '',
+  defaultStatus = 'todo',
   onOpenCategoryManager,
 }) => {
   const { activeWorkspace, members } = useWorkspace();
@@ -65,7 +66,7 @@ export const TaskModal = ({
       setTitle('');
       setDescription('');
       setPriority('medium');
-      setStatus('todo');
+      setStatus(defaultStatus || 'todo');
       setDueDate(defaultDueDate || '');
       setAssignedTo([]);
       setCategoryId('');
@@ -74,7 +75,7 @@ export const TaskModal = ({
       setSubtasks([]);
     }
     setError('');
-  }, [initialTask, isOpen, defaultDueDate]);
+  }, [initialTask, isOpen, defaultDueDate, defaultStatus]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

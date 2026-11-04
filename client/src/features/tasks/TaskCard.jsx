@@ -24,6 +24,7 @@ export const TaskCard = ({
   onDragEnd,
   isDragging = false,
   onCategoryClick,
+  onTaskContextMenu,
 }) => {
   const priorityInfo = priorityBadges[task.priority] || priorityBadges.medium;
   const isOverdue = isTaskOverdue(task.dueDate, task.status);
@@ -47,6 +48,7 @@ export const TaskCard = ({
         onStatusChange={onStatusChange}
         onOpenComments={onOpenComments}
         onCategoryClick={onCategoryClick}
+        onTaskContextMenu={onTaskContextMenu}
         lang={lang}
         t={t}
       />
@@ -72,6 +74,7 @@ export const TaskCard = ({
       onStatusChange={onStatusChange}
       onOpenComments={onOpenComments}
       onCategoryClick={onCategoryClick}
+      onTaskContextMenu={onTaskContextMenu}
       lang={lang}
       t={t}
     />

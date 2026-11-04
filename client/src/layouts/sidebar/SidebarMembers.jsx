@@ -1,5 +1,7 @@
 import React from 'react';
-import { Plus, UserX, Trash2, UserMinus, Eye } from 'lucide-react';
+import { Plus, UserX, Trash2, UserMinus, Eye, MoreVertical } from 'lucide-react';
+import { useContextMenu } from '../../components/contextMenu/index.js';
+import { SidebarMemberContextMenu } from './SidebarMemberContextMenu.jsx';
 
 export const SidebarMembers = ({
   members = [],
@@ -18,6 +20,22 @@ export const SidebarMembers = ({
   const userRole = activeWorkspace?.role?.toLowerCase?.();
   const isOwner = userRole === 'owner';
   const isManager = userRole === 'manager';
+
+  const memberMenu = useContextMenu();
+
+  const handleCopyEmail = (email) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(email).catch(() => {});
+    }
+    memberMenu.close();
+  };
+
+  const handleViewTasks = (m) => {
+    const memberId = m?.id || m?._id || m?.userId;
+    onFilterChange(`member:${memberId}`);
+    onCloseSidebar?.();
+    memberMenu.close();
+  };
 
   return (
     <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
@@ -81,14 +99,35 @@ export const SidebarMembers = ({
             const canViewMemberTasks = isOwner || (isManager && !targetIsOwner);
             const isMemberFilterActive = activeFilter === `member:${memberId}`;
 
+            const canRemoveDirect = isOwner && !isSelf && !targetIsOwner;
+            const canRequestRemoval = isManager && !isSelf && !targetIsOwner && !targetIsManager && !hasPending;
+
             return (
               <div
                 key={memberId}
-                className={`group flex items-center justify-between px-3 py-1.5 rounded-xl transition-colors ${
+                className={`group flex items-center justify-between px-3 py-1.5 rounded-xl transition-colors select-none ${
                   isMemberFilterActive
                     ? 'bg-brand-500/10 dark:bg-brand-500/15 border border-brand-500/25'
                     : 'hover:bg-slate-100/60 dark:hover:bg-slate-800/40'
                 }`}
+                onContextMenu={(e) =>
+                  memberMenu.open(e, {
+                    member: m,
+                    canViewMemberTasks,
+                    canRemoveDirect,
+                    canRequestRemoval,
+                    memberId,
+                    memberName,
+                  })
+                }
+                {...memberMenu.bindLongPress({
+                  member: m,
+                  canViewMemberTasks,
+                  canRemoveDirect,
+                  canRequestRemoval,
+                  memberId,
+                  memberName,
+                })}
               >
                 <div
                   className={`flex items-center gap-2 min-w-0 flex-1 ${
@@ -175,7 +214,7 @@ export const SidebarMembers = ({
                               type="button"
                               onClick={() =>
                                 onConfirmMemberAction?.({
-                              type: 'request_removal',
+                                  type: 'request_removal',
                                   memberId,
                                   memberName,
                                 })
@@ -190,6 +229,26 @@ export const SidebarMembers = ({
                       )}
                     </>
                   )}
+
+                  {/* 3-Dots mobile/accessible trigger */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      memberMenu.open(e, {
+                        member: m,
+                        canViewMemberTasks,
+                        canRemoveDirect,
+                        canRequestRemoval,
+                        memberId,
+                        memberName,
+                      });
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all rounded cursor-pointer"
+                    title={t('actions') || 'Actions'}
+                  >
+                    <MoreVertical className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
             );
@@ -200,7 +259,38 @@ export const SidebarMembers = ({
           </p>
         )}
       </div>
+
+      {/* Member Context Menu */}
+      {memberMenu.isOpen && memberMenu.data && (
+        <SidebarMemberContextMenu
+          position={memberMenu.position}
+          member={memberMenu.data.member}
+          canViewTasks={memberMenu.data.canViewMemberTasks}
+          canRemoveDirect={memberMenu.data.canRemoveDirect}
+          canRequestRemoval={memberMenu.data.canRequestRemoval}
+          onClose={memberMenu.close}
+          onViewTasks={() => handleViewTasks(memberMenu.data.member)}
+          onCopyEmail={handleCopyEmail}
+          onRemoveMember={() => {
+            memberMenu.close();
+            if (memberMenu.data.canRemoveDirect) {
+              onConfirmMemberAction?.({
+                type: 'direct_delete',
+                memberId: memberMenu.data.memberId,
+                memberName: memberMenu.data.memberName,
+              });
+            } else if (memberMenu.data.canRequestRemoval) {
+              onConfirmMemberAction?.({
+                type: 'request_removal',
+                memberId: memberMenu.data.memberId,
+                memberName: memberMenu.data.memberName,
+              });
+            }
+          }}
+          lang={lang}
+          t={t}
+        />
+      )}
     </div>
   );
 };
-

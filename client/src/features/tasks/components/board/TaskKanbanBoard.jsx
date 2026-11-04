@@ -19,6 +19,8 @@ export const TaskKanbanBoard = ({
   onOpenComments,
   onCategoryClick,
   onNewTask,
+  onTaskContextMenu,
+  onColumnContextMenu,
   priorityBadges,
   formatDate,
   lang,
@@ -43,7 +45,14 @@ export const TaskKanbanBoard = ({
             }`}
           >
             {/* Sleek Column Header */}
-            <div className="flex items-center justify-between px-2 py-2 mb-2 shrink-0">
+            <div
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onColumnContextMenu?.(e, column);
+              }}
+              className="flex items-center justify-between px-2 py-2 mb-2 shrink-0 cursor-default"
+            >
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${column.indicatorColor}`}
@@ -87,6 +96,7 @@ export const TaskKanbanBoard = ({
                     onStatusChange={onStatusChange}
                     onOpenComments={onOpenComments}
                     onCategoryClick={onCategoryClick}
+                    onTaskContextMenu={onTaskContextMenu}
                     draggable={true}
                     onDragStart={onDragStart}
                     onDragEnd={onDragEnd}

@@ -20,6 +20,8 @@ export const CalendarGrid = ({
   onDragOver,
   onDragLeave,
   onDrop,
+  onTaskContextMenu,
+  onDayContextMenu,
   lang = 'fa',
   t,
 }) => {
@@ -77,6 +79,11 @@ export const CalendarGrid = ({
                 onDragLeave={(e) => onDragLeave(e, cell.dateKey)}
                 onDrop={(e) => onDrop(e, cell.dateKey)}
                 onClick={() => onSelectDate(cell.dateKey)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDayContextMenu?.(e, cell);
+                }}
                 className={`relative min-h-[96px] sm:min-h-[116px] md:min-h-[128px] p-1.5 sm:p-2 flex flex-col justify-between transition-colors cursor-pointer group ${
                   isTarget
                     ? 'ring-2 ring-inset ring-brand-500 bg-brand-500/[0.1] dark:bg-brand-500/[0.18]'
@@ -132,6 +139,11 @@ export const CalendarGrid = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           onOpenDetail(task);
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onTaskContextMenu?.(e, task);
                         }}
                         className={`px-1.5 py-1 rounded-lg text-[11px] font-medium border flex items-center gap-1.5 transition-all shadow-2xs truncate ${
                           isDraggingThis
@@ -206,6 +218,11 @@ export const CalendarGrid = ({
                             setExpandedDateKey(null);
                             onOpenDetail(task);
                           }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onTaskContextMenu?.(e, task);
+                          }}
                           className="px-2 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 hover:border-brand-500 flex items-center justify-between gap-1.5 cursor-pointer truncate"
                         >
                           <span className="truncate">{task.title}</span>
@@ -241,6 +258,11 @@ export const CalendarGrid = ({
             onDragOver={(e) => onDragOver(e, day.dateKey)}
             onDragLeave={(e) => onDragLeave(e, day.dateKey)}
             onDrop={(e) => onDrop(e, day.dateKey)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDayContextMenu?.(e, day);
+            }}
             className={`flex flex-col rounded-2xl transition-all duration-200 p-2.5 min-h-[460px] max-h-[75vh] ${
               isTarget
                 ? 'ring-2 ring-brand-500/80 bg-brand-500/[0.09] dark:bg-brand-500/[0.14] border-brand-500/50 shadow-xl'
@@ -304,6 +326,11 @@ export const CalendarGrid = ({
                       onDragStart={(e) => onDragStart(e, task)}
                       onDragEnd={onDragEnd}
                       onClick={() => onOpenDetail(task)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onTaskContextMenu?.(e, task);
+                      }}
                       className={`p-2.5 rounded-xl border glass-panel transition-all duration-150 cursor-grab active:cursor-grabbing text-start group ${
                         isDraggingThis
                           ? 'opacity-40 scale-95 border-brand-500'

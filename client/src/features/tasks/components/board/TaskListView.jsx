@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Edit2,
   Trash2,
+  MoreVertical,
 } from 'lucide-react';
 
 export const TaskListView = ({
@@ -17,6 +18,7 @@ export const TaskListView = ({
   onOpenComments,
   onEdit,
   onDelete,
+  onTaskContextMenu,
   formatDate,
   t,
 }) => {
@@ -31,6 +33,18 @@ export const TaskListView = ({
           <div
             key={task._id}
             onClick={() => onOpenDetail(task)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onTaskContextMenu?.(e, task);
+            }}
+            onKeyDown={(e) => {
+              if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+                e.preventDefault();
+                e.stopPropagation();
+                onTaskContextMenu?.(e, task);
+              }
+            }}
             className="p-3.5 sm:p-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 transition-colors cursor-pointer"
           >
             {/* Top part: Status selector & Title */}
@@ -144,7 +158,23 @@ export const TaskListView = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-1 ms-auto lg:ms-0">
+              <div
+                className="flex items-center gap-1 ms-auto lg:ms-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTaskContextMenu?.(e, task);
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title={t('moreActions')}
+                  aria-label={t('moreActions')}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
                 <button
                   onClick={() => onOpenDetail(task)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

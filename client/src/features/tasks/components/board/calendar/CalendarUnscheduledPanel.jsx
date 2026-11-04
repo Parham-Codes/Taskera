@@ -13,6 +13,7 @@ export const CalendarUnscheduledPanel = ({
   onDragOver,
   onDragLeave,
   onDrop,
+  onTaskContextMenu,
   t,
   lang,
 }) => {
@@ -75,6 +76,11 @@ export const CalendarUnscheduledPanel = ({
                 onDragStart={(e) => onDragStart(e, task)}
                 onDragEnd={onDragEnd}
                 onClick={() => onOpenDetail(task)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onTaskContextMenu?.(e, task);
+                }}
                 className={`p-2.5 rounded-xl glass-panel border border-slate-200/90 dark:border-slate-800 border-s-4 ${borderClass} hover:border-brand-500/50 hover:shadow-xs transition-all cursor-grab active:cursor-grabbing text-start group`}
               >
                 <div className="flex items-center justify-between gap-1 mb-1">
