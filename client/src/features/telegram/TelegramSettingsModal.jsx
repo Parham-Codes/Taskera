@@ -16,6 +16,7 @@ import {
   TelegramGuideSection,
   TelegramTokenInput,
   TelegramEventPreferences,
+  TelegramAssistantSection,
 } from './components/index.js';
 
 export const TelegramSettingsModal = ({ isOpen, onClose }) => {
@@ -23,6 +24,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
   const { user, updateUser } = useAuth();
 
   const [enabled, setEnabled] = useState(false);
+  const [assistantEnabled, setAssistantEnabled] = useState(false);
   const [chatId, setChatId] = useState('');
   const [botToken, setBotToken] = useState('');
   const [botTokenConfigured, setBotTokenConfigured] = useState(false);
@@ -53,6 +55,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
     const applySettings = (settings) => {
       if (!settings || !isSubscribed) return;
       setEnabled(Boolean(settings.enabled));
+      setAssistantEnabled(Boolean(settings.assistantEnabled));
       setChatId(settings.chatId || '');
       setBotTokenConfigured(Boolean(settings.botTokenConfigured));
       setNotifyOnCreated(settings.notifyOnCreated !== false);
@@ -87,6 +90,7 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
     try {
       const payload = {
         enabled,
+        assistantEnabled,
         chatId: chatId.trim(),
         notifyOnCreated,
         notifyOnAssigned,
@@ -255,6 +259,15 @@ export const TelegramSettingsModal = ({ isOpen, onClose }) => {
             notifyOnReminders={notifyOnReminders}
             setNotifyOnReminders={setNotifyOnReminders}
             t={t}
+          />
+
+          {/* AI Voice Assistant Section */}
+          <TelegramAssistantSection
+            assistantEnabled={assistantEnabled}
+            setAssistantEnabled={setAssistantEnabled}
+            chatId={chatId}
+            t={t}
+            lang={lang}
           />
         </div>
 

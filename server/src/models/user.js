@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      assistantEnabled: {
+        type: Boolean,
+        default: false,
+      },
       botToken: {
         type: String,
         default: '',
@@ -97,6 +101,7 @@ export const sanitizeTelegramSettings = (settings) => {
   if (!settings) {
     return {
       enabled: false,
+      assistantEnabled: false,
       chatId: '',
       botTokenConfigured: false,
       notifyOnCreated: true,
@@ -111,6 +116,7 @@ export const sanitizeTelegramSettings = (settings) => {
 
   return {
     enabled: Boolean(settings.enabled),
+    assistantEnabled: Boolean(settings.assistantEnabled),
     chatId: settings.chatId || '',
     botTokenConfigured: isConfigured,
     notifyOnCreated: settings.notifyOnCreated !== false,

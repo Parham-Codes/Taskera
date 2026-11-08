@@ -346,6 +346,12 @@ export const translations = {
     telegramStep1: '۱. به ربات @userinfobot در تلگرام پیام /start بفرستید تا Chat ID عددی خود را بگیرید.',
     telegramStep2: '۲. اگر توکن وارد نمی‌کنید، به آیدی ربات پیش‌فرض @Taskeraaa_Bot رفته و یک‌بار دکمه Start را بزنید تا ربات اجازه پیام دادن به شما را داشته باشد.',
     telegramStep3: '۳. شناسه را در کادر بالا وارد کرده، سوییچ را فعال کنید و دکمه تست را بزنید.',
+    telegramVoiceAssistantTitle: 'دستیار صوتی تلگرام',
+    enableVoiceAssistant: 'فعال‌سازی هوش مصنوعی و ساخت تسک با ویس',
+    voiceAssistantDesc: 'با ارسال ویس یا پیام متنی به بات اختصاصی تلگرام، تسک‌ها به‌صورت خودکار در فضای کاری شخصی شما ایجاد می‌شوند.',
+    assistantRequiresChatId: 'برای فعال‌سازی دستیار صوتی، ابتدا شناسه چت (Chat ID) خود را در کادر بالا وارد و ذخیره کنید.',
+    active: 'فعال',
+    inactive: 'غیرفعال',
 
     // Footer
     footerBuiltWith: 'طراحی و توسعه با دقت و ظرافت توسط',
@@ -720,6 +726,12 @@ export const translations = {
     telegramStep1: '1. Send /start to @userinfobot on Telegram to obtain your numeric Chat ID.',
     telegramStep2: '2. If not using a custom token, open the default bot @Taskeraaa_Bot on Telegram and press Start so it can send you messages.',
     telegramStep3: '3. Enter your Chat ID above, toggle enabled, then save and test.',
+    telegramVoiceAssistantTitle: 'Telegram Voice Assistant',
+    enableVoiceAssistant: 'Enable AI Voice-to-Task',
+    voiceAssistantDesc: 'Send voice notes or text messages to your dedicated bot to create tasks automatically in your personal workspace.',
+    assistantRequiresChatId: 'To enable the voice assistant, please enter and save your Telegram Chat ID in the field above first.',
+    active: 'Active',
+    inactive: 'Inactive',
 
     // Footer
     footerBuiltWith: 'Crafted with precision by',

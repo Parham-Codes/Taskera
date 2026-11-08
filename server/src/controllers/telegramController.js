@@ -49,6 +49,7 @@ export const updateTelegramSettings = async (req, res, next) => {
   try {
     const {
       enabled,
+      assistantEnabled,
       botToken,
       clearBotToken,
       chatId,
@@ -63,6 +64,22 @@ export const updateTelegramSettings = async (req, res, next) => {
       return errorResponse(res, { message: 'User not found', statusCode: 404 });
     }
 
+    const resolvedChatId =
+      typeof chatId === 'string' ? chatId.trim() : user.telegramSettings?.chatId || '';
+
+    // Assistant requires a valid Chat ID to be enabled
+    const targetAssistantEnabled =
+      assistantEnabled !== undefined
+        ? Boolean(assistantEnabled)
+        : Boolean(user.telegramSettings?.assistantEnabled);
+
+    if (targetAssistantEnabled && !resolvedChatId) {
+      return errorResponse(res, {
+        message: 'A valid Telegram Chat ID is required to enable the voice assistant.',
+        statusCode: 400,
+      });
+    }
+
     // Determine target bot token:
     // 1. Explicit clear requested
     // 2. New token entered
@@ -75,9 +92,10 @@ export const updateTelegramSettings = async (req, res, next) => {
     }
 
     user.telegramSettings = {
-      enabled: Boolean(enabled),
+      enabled: enabled !== undefined ? Boolean(enabled) : Boolean(user.telegramSettings?.enabled),
+      assistantEnabled: targetAssistantEnabled,
       botToken: nextBotToken,
-      chatId: typeof chatId === 'string' ? chatId.trim() : user.telegramSettings?.chatId || '',
+      chatId: resolvedChatId,
       notifyOnCreated: notifyOnCreated !== undefined ? Boolean(notifyOnCreated) : true,
       notifyOnAssigned: notifyOnAssigned !== undefined ? Boolean(notifyOnAssigned) : true,
       notifyOnStatusChange:
