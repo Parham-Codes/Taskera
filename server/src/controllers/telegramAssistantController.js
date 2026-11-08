@@ -89,13 +89,25 @@ export const createTaskFromTelegramAssistant = async (req, res, next) => {
 
     const user = matchingUsers[0];
 
-    // 4. Create the task via taskCrudService
+    // 4. Safely validate and normalize subtasks if provided
+    let normalizedSubtasks = [];
+    if (Array.isArray(task.subtasks)) {
+      normalizedSubtasks = task.subtasks
+        .filter((st) => st && typeof st === 'object' && typeof st.title === 'string')
+        .map((st) => ({
+          title: st.title.trim(),
+        }))
+        .filter((st) => st.title.length > 0);
+    }
+
+    // 5. Create the task via taskCrudService
     const taskData = {
       title,
       description: typeof task.description === 'string' ? task.description.trim() : '',
       priority: ['low', 'medium', 'high', 'urgent'].includes(task.priority) ? task.priority : 'medium',
       status: 'todo',
       dueDate: task.dueDate || null,
+      subtasks: normalizedSubtasks,
       organizationId: null, // Always personal space for telegram assistant v1
     };
 

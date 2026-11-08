@@ -241,6 +241,70 @@ async function runTests() {
       console.log('  PASS (201 Created with correct ownership & Personal Space)');
     }
 
+    console.log('[Test 8.1] Task Creation with Subtasks');
+    {
+      const res = await request('/api/internal/telegram/assistant/tasks', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TEST_SECRET}` },
+        body: {
+          telegramUserId: testChatId1,
+          telegramChatId: testChatId1,
+          chatType: 'private',
+          isBot: false,
+          task: {
+            title: 'تسک همراه با زیرتسک‌ها',
+            description: 'توضیحات تست ساب‌تسک',
+            priority: 'medium',
+            subtasks: [
+              { title: '  مرحله اول: آماده‌سازی سرور  ' },
+              { title: 'مرحله دوم: تست اتصال' },
+              { extraField: 'should be ignored' }, // invalid (no title)
+              { title: '   ' }, // invalid (empty title)
+              null, // invalid
+            ],
+          },
+        },
+      });
+      if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}: ${JSON.stringify(res.data)}`);
+      const taskWithSubs = await Task.findById(res.data.data.task._id);
+      if (!taskWithSubs) throw new Error('Task with subtasks not found in DB');
+      if (!Array.isArray(taskWithSubs.subtasks) || taskWithSubs.subtasks.length !== 2) {
+        throw new Error(`Expected 2 valid subtasks, got ${taskWithSubs.subtasks?.length}`);
+      }
+      if (taskWithSubs.subtasks[0].title !== 'مرحله اول: آماده‌سازی سرور') {
+        throw new Error(`Subtask 1 title not trimmed properly: "${taskWithSubs.subtasks[0].title}"`);
+      }
+      if (taskWithSubs.subtasks[1].title !== 'مرحله دوم: تست اتصال') {
+        throw new Error(`Subtask 2 title mismatch: "${taskWithSubs.subtasks[1].title}"`);
+      }
+      console.log('  PASS (Task created with 2 sanitized subtasks)');
+    }
+
+    console.log('[Test 8.2] Task Creation with invalid / empty subtasks');
+    {
+      const res = await request('/api/internal/telegram/assistant/tasks', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TEST_SECRET}` },
+        body: {
+          telegramUserId: testChatId1,
+          telegramChatId: testChatId1,
+          chatType: 'private',
+          isBot: false,
+          task: {
+            title: 'تسک با ساب‌تسک‌های خالی',
+            subtasks: [{ title: '   ' }, { notATitle: 'x' }],
+          },
+        },
+      });
+      if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
+      const taskEmptySubs = await Task.findById(res.data.data.task._id);
+      if (!taskEmptySubs) throw new Error('Task not found in DB');
+      if (taskEmptySubs.subtasks.length !== 0) {
+        throw new Error(`Expected 0 subtasks, got ${taskEmptySubs.subtasks.length}`);
+      }
+      console.log('  PASS (Task created gracefully with 0 subtasks when all invalid)');
+    }
+
     console.log('[Test 9] Ambiguity Detection: Multiple users sharing same Chat ID');
     {
       // Create duplicate user with same chatId1
